@@ -44,7 +44,14 @@ h1{margin:0;font-size:20px;font-weight:700;letter-spacing:.02em}
 .top button:hover{border-color:var(--muted)}
 .tools{display:flex;gap:8px}
 
-.stage{position:relative;display:grid;grid-template-columns:auto auto auto;grid-template-areas:"hold well next" "stats well next";grid-template-rows:auto 1fr;gap:14px;justify-content:center;align-items:start;max-width:760px;margin:0 auto}
+/* The board sits in the middle column; equal side columns keep it centred whatever the panels hold.
+   Keys on the left, settings on the right, both hugging the board; below 1140px they drop under it. */
+.arena{display:grid;grid-template-columns:1fr auto 1fr;grid-template-areas:"left stage right";gap:20px;align-items:start;max-width:1320px;margin:0 auto}
+.side{width:250px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.side.left{grid-area:left;justify-self:end}
+.side.right{grid-area:right;justify-self:start}
+.keyspanel{padding:10px 14px}
+.stage{grid-area:stage;position:relative;display:grid;grid-template-columns:var(--pw,112px) auto var(--pw,112px);grid-template-areas:"hold well next" "stats well next";grid-template-rows:auto 1fr;gap:14px;justify-content:center;align-items:start}
 .panel{background:var(--panel);border:1px solid var(--edge);border-radius:4px;padding:8px}
 .label{font-size:11px;font-weight:700;letter-spacing:.14em;color:var(--muted);margin:0 0 6px}
 .holdbox{grid-area:hold}
@@ -52,8 +59,8 @@ h1{margin:0;font-size:20px;font-weight:700;letter-spacing:.02em}
 canvas{display:block}
 .stats{grid-area:stats;display:flex;flex-direction:column;gap:10px;min-width:0}
 .stat .k{font-size:11px;font-weight:700;letter-spacing:.12em;color:var(--muted)}
-.stat .v{font:700 17px var(--mono);font-variant-numeric:tabular-nums;margin-top:2px}
-.stat.big .v{font:400 24px var(--display);color:var(--accent);letter-spacing:.02em}
+.stat .v{font:700 17px var(--mono);font-variant-numeric:tabular-nums;margin-top:2px;white-space:nowrap}
+.stat.big .v{font:400 20px var(--display);color:var(--accent);letter-spacing:.02em}
 
 .wellwrap{grid-area:well;position:relative;border:2px solid var(--edge);border-top-color:transparent;box-shadow:0 0 0 6px rgba(13,12,22,.6),0 18px 50px rgba(0,0,0,.45);transition:border-color .3s,box-shadow .3s}
 .wellwrap.danger{border-color:var(--danger);border-top-color:transparent;box-shadow:0 0 0 6px rgba(13,12,22,.6),0 0 28px rgba(255,93,115,.35)}
@@ -90,11 +97,10 @@ canvas{display:block}
 .touch button.hd{background:#3a2f12;border-color:#6b5520;color:var(--accent)}
 @media (pointer:coarse){.touch{display:grid}.keys{display:none}}
 
-.below{max-width:760px;margin:18px auto 0;display:flex;flex-wrap:wrap;gap:12px 24px;justify-content:center;align-items:flex-start}
 .keys{display:grid;grid-template-columns:auto auto;gap:5px 12px;font-size:13px;color:var(--muted)}
 .keys span:nth-child(odd){text-align:right}
 kbd{font:500 12px var(--mono);color:var(--fg);background:var(--panel);border:1px solid var(--edge);border-bottom-width:2px;border-radius:3px;padding:1px 6px}
-.settings{background:var(--panel);border:1px solid var(--edge);border-radius:4px;padding:10px 14px;min-width:240px;max-width:100%}
+.settings{background:var(--panel);border:1px solid var(--edge);border-radius:4px;padding:10px 14px;max-width:100%}
 .settings summary{cursor:pointer;font-size:13px;font-weight:700}
 .settings .row{display:grid;grid-template-columns:44px 1fr 60px;align-items:center;gap:10px;margin-top:10px;font-size:13px}
 .settings output{font:500 12px var(--mono);text-align:right;color:var(--accent)}
@@ -106,7 +112,13 @@ kbd{font:500 12px var(--mono);color:var(--fg);background:var(--panel);border:1px
 .pieces{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:6px;font:700 13px var(--mono)}
 .pieces label{display:flex;gap:4px;align-items:center;cursor:pointer}
 
+@media (max-width:1139px){
+  .arena{grid-template-columns:auto auto;grid-template-areas:"stage stage" "left right";justify-content:center;gap:18px 24px}
+  .side.left,.side.right{justify-self:center;align-self:start}
+}
 @media (max-width:719px){
+  .arena{grid-template-columns:minmax(0,1fr);grid-template-areas:"stage" "left" "right"}
+  .side{width:100%;max-width:420px}
   .stage{grid-template-areas:"hold well next" "stats stats stats";gap:10px}
   .panel{padding:6px}
   .stats{flex-direction:row;flex-wrap:wrap;justify-content:center;gap:8px 18px}
@@ -121,6 +133,24 @@ kbd{font:500 12px var(--mono);color:var(--fg);background:var(--panel);border:1px
   <div class="tools"><button id="undoBtn" type="button" hidden>되돌리기</button><button id="pauseBtn" type="button">일시정지</button></div>
 </header>
 
+<div class="arena">
+  <aside class="side left" aria-label="조작키">
+    <section class="panel keyspanel"><p class="label">조작키</p>
+    <div class="keys" aria-label="조작키">
+      <span><kbd>←</kbd> <kbd>→</kbd></span><span>이동</span>
+      <span><kbd>↓</kbd></span><span>소프트 드롭</span>
+      <span><kbd>Space</kbd></span><span>하드 드롭</span>
+      <span><kbd>↑</kbd> <kbd>X</kbd></span><span>시계 방향 회전</span>
+      <span><kbd>Z</kbd> <kbd>Ctrl</kbd></span><span>반시계 방향 회전</span>
+      <span><kbd>A</kbd></span><span>180° 회전 (TETR.IO SRS+ 킥)</span>
+      <span><kbd>C</kbd> <kbd>Shift</kbd></span><span>홀드</span>
+      <span><kbd>Esc</kbd> <kbd>P</kbd></span><span>일시정지</span>
+      <span><kbd>R</kbd></span><span>바로 재시작 (연습: 같은 순서로)</span>
+      <span><kbd>⌫</kbd></span><span>한 수 되돌리기 (연습)</span>
+      <span><kbd>N</kbd></span><span>새 순서 (연습)</span>
+    </div>
+    </section>
+  </aside>
 <main class="stage" id="stage">
   <section class="panel holdbox"><p class="label">홀드</p><canvas id="hold" aria-label="홀드한 블록"></canvas></section>
   <section class="stats" id="stats" aria-live="off"></section>
@@ -132,6 +162,28 @@ kbd{font:500 12px var(--mono);color:var(--fg);background:var(--panel);border:1px
   <section class="panel nextbox"><p class="label">다음</p><canvas id="next" aria-label="다음 블록"></canvas></section>
   <div class="overlay" id="ov"><div class="card" id="card"></div></div>
 </main>
+  <aside class="side right" aria-label="설정">
+    <details class="settings" open>
+      <summary>조작감 설정</summary>
+      <div class="row"><label for="das">DAS</label><input id="das" type="range" min="40" max="300" step="1"><output id="dasv"></output></div>
+      <div class="row"><label for="arr">ARR</label><input id="arr" type="range" min="0" max="100" step="1"><output id="arrv"></output></div>
+      <div class="row"><label for="sdf">SDF</label><input id="sdf" type="range" min="5" max="41" step="1"><output id="sdfv"></output></div>
+      <label class="check"><input id="snd" type="checkbox"> 효과음</label>
+      <label class="check">좌우 반전 (연습) <select id="mir"><option value="off">끔</option><option value="on">켬</option><option value="random">판마다 무작위</option></select></label>
+      <p>DAS는 좌우키를 누르고 자동 이동이 시작될 때까지의 시간, ARR은 자동 이동 간격, SDF는 소프트 드롭 배속입니다. 좌우 반전은 연습 모드의 시작 보드와 정해진 hold 블록을 뒤집고(L↔J, S↔Z), 다음 판부터 적용됩니다. DPC는 셋업에 맞춰 자동으로 반전됩니다.</p>
+    </details>
+    <details class="settings" open>
+      <summary>연습 설정 (DPC · 산악쌓기 2호)</summary>
+      <p class="sub">남길 블록 (DPC hold 후보)</p>
+      <div class="pieces" id="dpcHold"></div>
+      <label class="check"><input id="dpcGuide" type="checkbox"> 목표 위치 표시</label>
+      <div class="row"><label for="ga">진하기</label><input id="ga" type="range" min="10" max="100" step="5"><output id="gav"></output></div>
+      <label class="check"><input id="dpcJudge" type="checkbox"> 배치 판정 (목표와 다르면 실패)</label>
+      <label class="check"><input id="loop" type="checkbox"> 산악쌓기 2호: PC 후 DPC로 이어서 무한 루프</label>
+      <p>셋업은 Hard Drop 위키(DPC Setups, Mountainous Stacking) 기준입니다. 블록 순서와 hold를 보고 완성할 수 있는 셋업과 PC 해법을(반전 포함) 자동으로 고릅니다. DPC를 시작할 때 hold에 둘 블록은 위 후보 중에서 고르고, 산악쌓기 2호의 PC에서는 후보 블록을 남기는 해법을 먼저 보여 줍니다. 위키는 O, S/Z, I를 남기길 권하고 J/L, T는 피하라고 합니다. hold 후보는 다음 판부터, 나머지는 바로 적용됩니다.</p>
+    </details>
+  </aside>
+</div>
 
 <div class="touch" id="touch">
   <button type="button" data-k="hold">홀드</button>
@@ -144,40 +196,6 @@ kbd{font:500 12px var(--mono);color:var(--fg);background:var(--panel);border:1px
   <button type="button" data-k="hard" class="hd">⤓</button>
 </div>
 
-<div class="below">
-  <div class="keys" aria-label="조작키">
-    <span><kbd>←</kbd> <kbd>→</kbd></span><span>이동</span>
-    <span><kbd>↓</kbd></span><span>소프트 드롭</span>
-    <span><kbd>Space</kbd></span><span>하드 드롭</span>
-    <span><kbd>↑</kbd> <kbd>X</kbd></span><span>시계 방향 회전</span>
-    <span><kbd>Z</kbd> <kbd>Ctrl</kbd></span><span>반시계 방향 회전</span>
-    <span><kbd>A</kbd></span><span>180° 회전 (TETR.IO SRS+ 킥)</span>
-    <span><kbd>C</kbd> <kbd>Shift</kbd></span><span>홀드</span>
-    <span><kbd>Esc</kbd> <kbd>P</kbd></span><span>일시정지</span>
-    <span><kbd>R</kbd></span><span>바로 재시작 (연습: 같은 순서로)</span>
-    <span><kbd>⌫</kbd></span><span>한 수 되돌리기 (연습)</span>
-    <span><kbd>N</kbd></span><span>새 순서 (연습)</span>
-  </div>
-  <details class="settings">
-    <summary>조작감 설정</summary>
-    <div class="row"><label for="das">DAS</label><input id="das" type="range" min="40" max="300" step="1"><output id="dasv"></output></div>
-    <div class="row"><label for="arr">ARR</label><input id="arr" type="range" min="0" max="100" step="1"><output id="arrv"></output></div>
-    <div class="row"><label for="sdf">SDF</label><input id="sdf" type="range" min="5" max="41" step="1"><output id="sdfv"></output></div>
-    <label class="check"><input id="snd" type="checkbox"> 효과음</label>
-    <label class="check">좌우 반전 (연습) <select id="mir"><option value="off">끔</option><option value="on">켬</option><option value="random">판마다 무작위</option></select></label>
-    <p>DAS는 좌우키를 누르고 자동 이동이 시작될 때까지의 시간, ARR은 자동 이동 간격, SDF는 소프트 드롭 배속입니다. 좌우 반전은 연습 모드의 시작 보드와 정해진 hold 블록을 뒤집고(L↔J, S↔Z), 다음 판부터 적용됩니다. DPC는 셋업에 맞춰 자동으로 반전됩니다.</p>
-  </details>
-  <details class="settings">
-    <summary>연습 설정 (DPC · 산악쌓기 2호)</summary>
-    <p class="sub">남길 블록 (DPC hold 후보)</p>
-    <div class="pieces" id="dpcHold"></div>
-    <label class="check"><input id="dpcGuide" type="checkbox"> 목표 위치 표시</label>
-    <div class="row"><label for="ga">진하기</label><input id="ga" type="range" min="10" max="100" step="5"><output id="gav"></output></div>
-    <label class="check"><input id="dpcJudge" type="checkbox"> 배치 판정 (목표와 다르면 실패)</label>
-    <label class="check"><input id="loop" type="checkbox"> 산악쌓기 2호: PC 후 DPC로 이어서 무한 루프</label>
-    <p>셋업은 Hard Drop 위키(DPC Setups, Mountainous Stacking) 기준입니다. 블록 순서와 hold를 보고 완성할 수 있는 셋업과 PC 해법을(반전 포함) 자동으로 고릅니다. DPC를 시작할 때 hold에 둘 블록은 위 후보 중에서 고르고, 산악쌓기 2호의 PC에서는 후보 블록을 남기는 해법을 먼저 보여 줍니다. 위키는 O, S/Z, I를 남기길 권하고 J/L, T는 피하라고 합니다. hold 후보는 다음 판부터, 나머지는 바로 적용됩니다.</p>
-  </details>
-</div>
 
 <script>
 (()=>{
@@ -1192,6 +1210,8 @@ function layout(){
   sizeCanvas(well,CS*COLS,CS*ROWS);
   sizeCanvas(holdC,PS*4+16,PS*3);
   sizeCanvas(nextC,PS*4+16,PS*3*5);
+  // hold and next columns: exactly the panels' width, so changing stats never nudge the board
+  $('#stage').style.setProperty('--pw',(PS*4+16+2*(narrow?6:8)+2)+'px');
 }
 addEventListener('resize',layout);
 
@@ -1308,6 +1328,9 @@ bindRange('arr','arr',v=>v===0?'즉시':v+'ms');
 bindRange('sdf','sdf',v=>v>40?'∞':v+'x');
 bindRange('ga','guideAlpha',v=>v+'%');
 const snd=$('#snd');snd.checked=cfg.sound;snd.addEventListener('change',()=>{cfg.sound=snd.checked;save('tetris.settings',cfg);});
+// once a setting has been changed, hand the keys back to the game
+document.querySelectorAll('.settings input,.settings select').forEach(el=>el.addEventListener('change',()=>el.blur()));
+document.querySelectorAll('.settings summary').forEach(el=>el.addEventListener('click',()=>setTimeout(()=>el.blur())));
 const mir=$('#mir');mir.value=cfg.mirror;mir.addEventListener('change',()=>{cfg.mirror=mir.value;save('tetris.settings',cfg);});
 const dpcHold=$('#dpcHold');
 dpcHold.innerHTML=['O','S','Z','I','J','L','T'].map(t=>'<label style="color:'+COLORS[t]+'"><input type="checkbox" value="'+t+'"'+(cfg.dpcHold.includes(t)?' checked':'')+'> '+t+'</label>').join('');
