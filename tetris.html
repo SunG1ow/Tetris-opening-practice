@@ -41,6 +41,7 @@ h1{margin:0;font-size:20px;font-weight:700;letter-spacing:.02em}
 .modetag{font-size:12px;color:var(--muted);letter-spacing:.08em}
 .top button{font:500 13px var(--body);color:var(--fg);background:transparent;border:1px solid var(--edge);border-radius:4px;padding:6px 12px;cursor:pointer}
 .top button:hover{border-color:var(--muted)}
+.tools{display:flex;gap:8px}
 
 .stage{position:relative;display:grid;grid-template-columns:auto auto auto;grid-template-areas:"hold well next" "stats well next";grid-template-rows:auto 1fr;gap:14px;justify-content:center;align-items:start;max-width:760px;margin:0 auto}
 .panel{background:var(--panel);border:1px solid var(--edge);border-radius:4px;padding:8px}
@@ -75,8 +76,9 @@ canvas{display:block}
 .btn:focus-visible,.top button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .btn kbd{font:500 11px var(--mono);opacity:.7;margin-left:6px}
 .result{display:grid;grid-template-columns:1fr auto;gap:6px 16px;margin:4px 0 6px}
-.result dt{color:var(--muted);font-size:13px}
-.result dd{margin:0;font:700 14px var(--mono);font-variant-numeric:tabular-nums;text-align:right}
+.result dt{color:var(--muted);font-size:13px;white-space:nowrap}
+.result dd{margin:0;font:700 14px var(--mono);font-variant-numeric:tabular-nums;text-align:right;overflow-wrap:anywhere}
+.result dd.note{font:500 13px var(--body);text-align:left}
 .result dd.hero{font:400 22px var(--display);color:var(--accent)}
 .newbest{align-self:flex-start;font:700 11px var(--body);letter-spacing:.12em;color:#1a1729;background:var(--accent);padding:3px 8px;border-radius:2px}
 .hint{margin:2px 0 0;font-size:12px;color:var(--muted)}
@@ -111,7 +113,7 @@ kbd{font:500 12px var(--mono);color:var(--fg);background:var(--panel);border:1px
 <body>
 <header class="top">
   <div class="brand"><div class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></div><h1>테트리스</h1><span class="modetag" id="modetag"></span></div>
-  <button id="pauseBtn" type="button">일시정지</button>
+  <div class="tools"><button id="undoBtn" type="button" hidden>되돌리기</button><button id="pauseBtn" type="button">일시정지</button></div>
 </header>
 
 <main class="stage" id="stage">
@@ -147,7 +149,9 @@ kbd{font:500 12px var(--mono);color:var(--fg);background:var(--panel);border:1px
     <span><kbd>A</kbd></span><span>180° 회전</span>
     <span><kbd>C</kbd> <kbd>Shift</kbd></span><span>홀드</span>
     <span><kbd>Esc</kbd> <kbd>P</kbd></span><span>일시정지</span>
-    <span><kbd>R</kbd></span><span>바로 재시작</span>
+    <span><kbd>R</kbd></span><span>바로 재시작 (연습: 같은 순서로)</span>
+    <span><kbd>⌫</kbd></span><span>한 수 되돌리기 (연습)</span>
+    <span><kbd>N</kbd></span><span>새 순서 (연습)</span>
   </div>
   <details class="settings">
     <summary>조작감 설정</summary>
@@ -171,7 +175,8 @@ const SHAPES={
   T:[[0,1,0],[1,1,1],[0,0,0]],
   Z:[[1,1,0],[0,1,1],[0,0,0]]
 };
-const COLORS={I:'#3fd0e0',J:'#4d7cff',L:'#ff9a3c',O:'#ffd23f',S:'#5bd36a',T:'#b05cff',Z:'#ff4f64'};
+const PIECES=['I','J','L','O','S','T','Z'];
+const COLORS={I:'#3fd0e0',J:'#4d7cff',L:'#ff9a3c',O:'#ffd23f',S:'#5bd36a',T:'#b05cff',Z:'#ff4f64',G:'#8a849f'};
 const DEAD='#4a4560';
 const rotCW=m=>{const n=m.length,r=[];for(let y=0;y<n;y++){r.push([]);for(let x=0;x<n;x++)r[y][x]=m[n-1-x][y];}return r;};
 const ROT={};
@@ -180,6 +185,83 @@ for(const t in SHAPES){ROT[t]=[SHAPES[t]];for(let i=1;i<4;i++)ROT[t].push(rotCW(
 const K_JLSTZ={'0>1':[[0,0],[-1,0],[-1,1],[0,-2],[-1,-2]],'1>0':[[0,0],[1,0],[1,-1],[0,2],[1,2]],'1>2':[[0,0],[1,0],[1,-1],[0,2],[1,2]],'2>1':[[0,0],[-1,0],[-1,1],[0,-2],[-1,-2]],'2>3':[[0,0],[1,0],[1,1],[0,-2],[1,-2]],'3>2':[[0,0],[-1,0],[-1,-1],[0,2],[-1,2]],'3>0':[[0,0],[-1,0],[-1,-1],[0,2],[-1,2]],'0>3':[[0,0],[1,0],[1,1],[0,-2],[1,-2]]};
 const K_I={'0>1':[[0,0],[-2,0],[1,0],[-2,-1],[1,2]],'1>0':[[0,0],[2,0],[-1,0],[2,1],[-1,-2]],'1>2':[[0,0],[-1,0],[2,0],[-1,2],[2,-1]],'2>1':[[0,0],[1,0],[-2,0],[1,-2],[-2,1]],'2>3':[[0,0],[2,0],[-1,0],[2,1],[-1,-2]],'3>2':[[0,0],[-2,0],[1,0],[-2,-1],[1,2]],'3>0':[[0,0],[1,0],[-2,0],[1,-2],[-2,1]],'0>3':[[0,0],[-1,0],[2,0],[-1,2],[2,-1]]};
 const K_180=[[0,0],[0,1],[1,0],[-1,0],[0,-1]];
+
+// ---------- fumen ----------
+// Decoder for v115 fumen, the diagram format setups are shared in (fumen.zui.jp, harddrop.com/fumen).
+// Each page gives its field as 23 rows top to bottom (same shape as the board): 0 empty, 'I'..'Z' a piece, 'G' garbage.
+// The page's own piece, if any, is in `piece` and drawn into `placed`.
+const FUMEN_TYPES=[0,'I','L','O','Z','T','J','S','G'];
+const FUMEN_ROT=[2,1,0,3]; // encoded rotation -> 0 spawn, 1 right, 2 reverse, 3 left
+const FUMEN_BLOCKS={I:[[0,0],[-1,0],[1,0],[2,0]],T:[[0,0],[-1,0],[1,0],[0,1]],O:[[0,0],[1,0],[0,1],[1,1]],L:[[0,0],[-1,0],[1,0],[1,1]],J:[[0,0],[-1,0],[1,0],[-1,1]],S:[[0,0],[-1,0],[0,1],[1,1]],Z:[[0,0],[1,0],[0,1],[-1,1]]};
+// position offsets the format applies to O, I, S and Z per rotation
+const FUMEN_SHIFT={O:[[0,-1],[0,0],[1,0],[1,-1]],I:[[0,0],[0,0],[1,0],[0,-1]],S:[[0,-1],[-1,0],[0,0],[0,0]],Z:[[0,-1],[0,0],[0,0],[1,0]]};
+function decodeFumen(str){
+  str=String(str);
+  const at=str.search(/[vmd]115@/);
+  if(at<0)throw new Error('v115 fumen이 아닙니다');
+  const amp=str.indexOf('&');
+  const data=(amp>=0?str.slice(0,amp):str).slice(at+5).replace(/[?\s]+/g,'');
+  const TABLE='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  const CHARS=' !"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~';
+  const vals=[...data].map(c=>{const v=TABLE.indexOf(c);if(v<0)throw new Error('잘못된 fumen 문자: '+c);return v;});
+  let pos=0;
+  const poll=n=>{let v=0;for(let i=0;i<n;i++){if(pos>=vals.length)throw new Error('fumen 데이터가 잘렸습니다');v+=vals[pos++]*Math.pow(64,i);}return v;};
+  // 23 field rows (top to bottom) of type numbers, plus one garbage row below
+  let rows=Array.from({length:23},()=>Array(10).fill(0)),garbage=Array(10).fill(0);
+  const blocks=p=>{
+    const r=FUMEN_ROT[p.rot];
+    return FUMEN_BLOCKS[p.type].map(([x,y])=>{
+      const q=r===0?[x,y]:r===1?[y,-x]:r===2?[-x,-y]:[-y,x];
+      return [p.x+q[0],p.y+q[1]];
+    });
+  };
+  const put=(f,p,t)=>{for(const [x,y] of blocks(p))if(y>=0&&y<23&&x>=0&&x<10)f[22-y][x]=t;};
+  const pages=[];let repeat=-1,comment='';
+  while(pos<vals.length){
+    if(repeat>0)repeat--;
+    else{
+      rows=rows.map(r=>r.slice());garbage=garbage.slice();
+      let i=0,changed=true;
+      while(i<240){
+        const v=poll(2),diff=Math.floor(v/240)-8,n=v%240+1;
+        if(diff===0&&n===240)changed=false;
+        for(let k=0;k<n;k++,i++){if(i<230)rows[Math.floor(i/10)][i%10]+=diff;else garbage[i%10]+=diff;}
+      }
+      if(!changed)repeat=poll(1);
+    }
+    let a=poll(3);
+    const t=a%8;a=Math.floor(a/8);
+    const rc=a%4;a=Math.floor(a/4);
+    const loc=a%240;a=Math.floor(a/240);
+    const rise=a%2;a=Math.floor(a/2);
+    const mirror=a%2;a=Math.floor(a/2);
+    a=Math.floor(a/2); // colorize flag
+    const hasComment=a%2;a=Math.floor(a/2);
+    const lock=!(a%2);
+    if(hasComment){
+      const len=poll(2);let text='';
+      for(let k=0;k<Math.floor((len+3)/4);k++){let v=poll(5);for(let j=0;j<4;j++){text+=CHARS[v%(CHARS.length+1)];v=Math.floor(v/(CHARS.length+1));}}
+      comment=unescape(text.slice(0,len));
+    }
+    let piece=null;
+    if(t>0&&t<8){
+      const type=FUMEN_TYPES[t],sh=(FUMEN_SHIFT[type]||[])[FUMEN_ROT[rc]]||[0,0];
+      piece={type,rot:rc,x:loc%10+sh[0],y:22-Math.floor(loc/10)+sh[1]};
+    }
+    const named=f=>f.map(r=>r.map(v=>FUMEN_TYPES[v]||0));
+    const placed=rows.map(r=>r.slice());
+    if(piece)put(placed,piece,t);
+    pages.push({field:named(rows),placed:named(placed),piece:piece&&{type:piece.type,rot:FUMEN_ROT[piece.rot]},comment});
+    if(lock){
+      if(piece)rows=placed;
+      rows=rows.filter(r=>r.some(v=>!v));
+      while(rows.length<23)rows.unshift(Array(10).fill(0));
+      if(rise){rows.shift();rows.push(garbage);garbage=Array(10).fill(0);}
+      if(mirror)rows=rows.map(r=>r.slice().reverse());
+    }
+  }
+  return pages;
+}
 
 const $=s=>document.querySelector(s);
 const well=$('#well'),wctx=well.getContext('2d');
@@ -208,7 +290,7 @@ function newGame(){
   };
 }
 function reset(){G=newGame();flashes=[];feed.textContent='';}
-function bag7(){const b=['I','J','L','O','S','T','Z'];for(let i=b.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[b[i],b[j]]=[b[j],b[i]];}return b;}
+function bag7(){const b=PIECES.slice();for(let i=b.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[b[i],b[j]]=[b[j],b[i]];}return b;}
 function takeNext(){while(G.queue.length<8)G.queue.push(...M.nextBag(G));return G.queue.shift();}
 
 function fits(t,r,x,y){
@@ -292,9 +374,10 @@ function lockPiece(){
   if(n&&!reduced)full.forEach(r=>flashes.push({r,t:now}));
   scoreClear(n,ts);
   const end=M.afterLock&&M.afterLock(G);
+  if(end==='next'){newRound();return;}
   if(end){endGame(end==='win');return;}
   G.holdUsed=false;
-  spawn(takeNext());
+  if(spawn(takeNext()))turnStart();
 }
 function scoreClear(n,ts){
   let pts=0,difficult=false;const lv=G.level;
@@ -345,7 +428,11 @@ const KEYMAP={ArrowLeft:'left',ArrowRight:'right',ArrowDown:'soft',ArrowUp:'cw',
 addEventListener('keydown',e=>{
   const inField=e.target&&e.target.tagName==='INPUT';
   if(e.code==='Escape'||e.code==='KeyP'){if(state==='play'||state==='ready'){pause();e.preventDefault();}else if(state==='paused'){resume();e.preventDefault();}return;}
-  if(e.code==='KeyR'&&!inField&&state!=='menu'){start(mode);e.preventDefault();return;}
+  if(e.code==='KeyR'&&!inField&&state!=='menu'){M.practice?retry():start(mode);e.preventDefault();return;}
+  if(M.practice&&!inField&&state!=='menu'){
+    if(e.code==='KeyN'){newRound();e.preventDefault();return;}
+    if(e.code==='Backspace'){undo();e.preventDefault();return;}
+  }
   if(e.code==='Enter'&&state==='menu'&&!(e.target&&e.target.classList&&e.target.classList.contains('mode'))){start(mode);e.preventDefault();return;}
   const k=KEYMAP[e.code];
   if(!k||inField)return;
@@ -400,7 +487,9 @@ function sfx(n){
 //   afterLock(G)       optional: runs after every lock and its scoring; 'win' or 'lose' ends the game
 //   stats              side panel rows: [label, value(G), big?]
 //   recordBest(G,won)  update `best`, return true on a new record
-//   result(G,won)      result card rows: [label, value, hero?]
+//   result(G,won)      result card rows: [label, value, true for a hero number | 'note' for a sentence]
+//   title(won)         optional: result card heading
+//   practice           optional: enables undo (Backspace), retry with the same pieces (R) and new pieces (N)
 const MODES={
   marathon:{
     name:'마라톤',
@@ -421,20 +510,86 @@ const MODES={
     stats:[['시간',G=>fmt(G.elapsed),true],['남은 줄',G=>Math.max(0,40-G.lines)],['블록',G=>G.pieces],['PPS',pps]],
     recordBest(G,won){if(won&&(!best.sprint||G.elapsed<best.sprint)){best.sprint=G.elapsed;return true;}return false;},
     result:(G,won)=>[['기록',won?fmt(G.elapsed):'—',true],['지운 줄',G.lines+' / 40'],['블록 수',G.pieces],['PPS',pps(G)],['최고 기록',best.sprint?fmt(best.sprint):'—']]
-  }
+  },
+  dpc:pcDrill({key:'dpc',name:'DPC 연습',desc:'SDPC 직후 · 홀드 1개 + 4·5가방, 15블록으로 퍼펙트 클리어',bags:2,pieces:15})
 };
+// Perfect-clear drill. Starts from `board` (fumen; empty when omitted) with a random piece already in hold,
+// as if left over from the previous PC, followed by `bags` fresh bags. Success is a perfect clear within
+// `pieces` placements; it then rolls straight into a new round. Each round counts once toward the success rate,
+// so undoing or retrying after a miss doesn't change the stats.
+function pcDrill(o){
+  const fail=(G,why)=>{G.fail=why;return 'lose';};
+  return {
+    name:o.name,practice:true,
+    desc:()=>o.desc+' · 최고 연속 '+(best[o.key]||0)+'회',
+    setup(G){
+      if(o.board)G.board=decodeFumen(o.board)[0].field;
+      G.hold=o.hold||PIECES[Math.random()*7|0];
+      for(let i=0;i<o.bags;i++)G.queue.push(...bag7());
+      G.need=(G.board.flat().filter(Boolean).length+4*o.pieces)/10;
+    },
+    nextBag:bag7,
+    gravity:()=>0,
+    afterLock(G){
+      if(G.board.every(r=>r.every(v=>!v))){
+        if(!roundCounted){
+          roundCounted=true;session.tries++;session.ok++;session.streak++;
+          if(session.streak>(best[o.key]||0)){best[o.key]=session.streak;save('tetris.best',best);}
+        }
+        return 'next';
+      }
+      const left=G.need-G.lines;
+      if(G.pieces>=o.pieces)return fail(G,o.pieces+'블록 안에 퍼펙트 클리어를 못 했습니다');
+      if(G.board.filter(r=>r.some(Boolean)).length>left)return fail(G,'남은 '+left+'줄로는 정리할 수 없는 모양입니다');
+      return null;
+    },
+    stats:[['성공',()=>session.ok+' / '+session.tries,true],['연속',()=>session.streak],['블록',G=>G.pieces+' / '+o.pieces],['남은 줄',G=>Math.max(0,(G.need||0)-G.lines)]],
+    recordBest(){
+      if(!roundCounted){roundCounted=true;session.tries++;session.streak=0;}
+      return false;
+    },
+    title:()=>'MISS',
+    result:G=>[['원인',G.fail||'블록이 천장에 닿았습니다','note'],['놓은 블록',G.pieces+' / '+o.pieces],['성공',session.ok+' / '+session.tries],['최고 연속',(best[o.key]||0)+'회']]
+  };
+}
 if(!MODES[mode])mode='marathon';
 M=MODES[mode];
 
 // ---------- flow ----------
+// Practice history: a snapshot of G at the start of every turn of the current round.
+let hist=[],roundCounted=false,endTimer=0;
+const session={ok:0,tries:0,streak:0};
+function turnStart(){if(M.practice)hist.push(structuredClone(G));}
+function newRound(){
+  clearTimeout(endTimer);
+  G=newGame();if(M.setup)M.setup(G);
+  hist=[];roundCounted=false;
+  state='ready';readyT=M.practice?700:1100;
+  ov.hidden=true;
+}
+function restore(snap){
+  clearTimeout(endTimer);
+  G=structuredClone(snap);flashes=[];feed.textContent='';
+  state='play';ov.hidden=true;
+  if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();
+}
+// Back one turn; after a miss, back to the start of the turn that missed.
+function undo(){
+  if(!hist.length||(state!=='play'&&state!=='over'))return;
+  if(state==='play'&&hist.length>1)hist.pop();
+  restore(hist[hist.length-1]);
+}
+function retry(){
+  if(!hist.length){newRound();return;}
+  hist.length=1;restore(hist[0]);
+}
 function start(m){
   mode=m;M=MODES[m];save('tetris.mode',m);
-  reset();if(M.setup)M.setup(G);
-  state='ready';readyT=1100;
-  ov.hidden=true;
+  feed.textContent='';flashes=[];
+  newRound();
   if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();
   $('#modetag').textContent=M.name;
-  $('#pauseBtn').hidden=false;
+  $('#pauseBtn').hidden=false;$('#undoBtn').hidden=!M.practice;
   buildStats();
 }
 function pause(){
@@ -455,18 +610,24 @@ function endGame(won){
   save('tetris.best',best);
   sfx(won?'win':'over');
   const rows=M.result(G,won);
-  setTimeout(()=>{
+  clearTimeout(endTimer);
+  endTimer=setTimeout(()=>{
     card.innerHTML=(nb?'<span class="newbest">새 최고 기록</span>':'')+
-      '<h2>'+(won?'CLEAR!':'GAME OVER')+'</h2>'+
-      '<dl class="result">'+rows.map(r=>'<dt>'+r[0]+'</dt><dd'+(r[2]?' class="hero"':'')+'>'+r[1]+'</dd>').join('')+'</dl>'+
-      '<button class="btn primary" data-act="restart" type="button">다시 하기<kbd>R</kbd></button>'+
+      '<h2>'+(M.title?M.title(won):won?'CLEAR!':'GAME OVER')+'</h2>'+
+      '<dl class="result">'+rows.map(r=>'<dt>'+r[0]+'</dt><dd'+(r[2]?' class="'+(r[2]==='note'?'note':'hero')+'"':'')+'>'+r[1]+'</dd>').join('')+'</dl>'+
+      (M.practice
+        ?'<button class="btn primary" data-act="undo" type="button">한 수 되돌리기<kbd>⌫</kbd></button>'+
+         '<button class="btn" data-act="restart" type="button">같은 순서로 다시<kbd>R</kbd></button>'+
+         '<button class="btn" data-act="new" type="button">새 순서<kbd>N</kbd></button>'
+        :'<button class="btn primary" data-act="restart" type="button">다시 하기<kbd>R</kbd></button>')+
       '<button class="btn" data-act="menu" type="button">모드 선택</button>';
     ov.hidden=false;card.querySelector('.btn').focus();
   },reduced?0:650);
 }
 function showMenu(){
-  state='menu';reset();
-  $('#modetag').textContent='';$('#pauseBtn').hidden=true;
+  clearTimeout(endTimer);
+  state='menu';reset();hist=[];
+  $('#modetag').textContent='';$('#pauseBtn').hidden=true;$('#undoBtn').hidden=true;
   card.innerHTML='<p class="eyebrow">모드 선택</p>'+
     Object.keys(MODES).map(k=>'<button class="mode" data-mode="'+k+'" type="button"><span class="mname">'+MODES[k].name+'</span><span class="mdesc">'+MODES[k].desc()+'</span></button>').join('')+
     '<p class="hint">Enter를 누르면 '+M.name+' 바로 시작 · SRS 회전, 7-bag, 홀드 지원</p>';
@@ -476,10 +637,13 @@ card.addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;
   if(b.dataset.mode)start(b.dataset.mode);
   else if(b.dataset.act==='resume')resume();
-  else if(b.dataset.act==='restart')start(mode);
+  else if(b.dataset.act==='restart')M.practice?retry():start(mode);
+  else if(b.dataset.act==='undo')undo();
+  else if(b.dataset.act==='new')newRound();
   else if(b.dataset.act==='menu')showMenu();
 });
 $('#pauseBtn').addEventListener('click',()=>{state==='paused'?resume():pause();});
+$('#undoBtn').addEventListener('click',e=>{undo();e.currentTarget.blur();});
 
 function announce(text,cls){
   const d=document.createElement('div');d.className='pop '+(cls||'');d.textContent=text;
@@ -587,7 +751,7 @@ function frame(now){
   if(state==='play')update(dt);
   else if(state==='ready'){
     readyT-=dt;if(dasDir){dasT+=dt;}
-    if(readyT<=0){state='play';spawn(takeNext());}
+    if(readyT<=0){state='play';if(spawn(takeNext()))turnStart();}
   }
   render(now);
   requestAnimationFrame(frame);
