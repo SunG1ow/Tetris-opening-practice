@@ -504,7 +504,8 @@ function* pcTilingsSteps(b,lines,pieces){
 }
 // Can these slots all be filled playing cur, then the queue, holding at most once per piece? '*' in the queue
 // is a piece that may only go into hold (the next bag, which a loop leaves alone). Returns -1 if not, otherwise
-// the best T-spin the order allows: lines cleared * 3 + (2 full | 1 mini), 0 for none.
+// the best the orders allow: 100 if an I can clear four lines at once (a Tetris), plus the best T-spin,
+// lines cleared * 3 + (2 full | 1 mini), 0 for none. Orders with a Tetris win over those without.
 // `lands` caches landSpin by board and slot; pass the same Map to calls on the same starting board.
 // With `any` it stops at the first order that works (returns 0 or -1), for when only feasibility matters.
 function slotsOrder(b,slots,cur,hold,queue,lands=new Map(),any=false){
@@ -530,7 +531,8 @@ function slotsOrder(b,slots,cur,hold,queue,lands=new Map(),any=false){
         const {board,removed}=placeOn(b,s.cells,p);
         const rest=go(board,left.filter(o=>o!==s).map(o=>shiftSlot(o,removed)),queue[n],h,n+1);
         if(rest<0)continue;
-        best=Math.max(best,rest,p==='T'&&spin>0&&removed.length?removed.length*3+spin:0);
+        const own=p==='T'&&spin>0&&removed.length?removed.length*3+spin:0,tetris=p==='I'&&removed.length===4;
+        best=Math.max(best,(tetris||rest>=100?100:0)+Math.max(own,rest%100));
         if(any)break;
       }
     }
@@ -893,13 +895,15 @@ const SPIN_NAME={4:'T-스핀 미니 싱글',5:'T-스핀 싱글',7:'T-스핀 미�
 // One perfect clear after another: a segment is Mountainous Stacking 2 (3 bags, 8 lines, 20 pieces, one piece
 // left in hold) or a DPC (that piece and 2 bags, 6 lines, 15 pieces). Within a segment the drill walks build
 // stages, each a set of GUIDE_OPTS, then the PC stage, whose options come from the solver when it starts:
-// T-spin solutions (not a T-spin mini single, as the wiki doesn't count it), the setup's minimal set, then any
-// other solution; within each, ones that leave a hold-pool piece for the DPC come first.
+// in a DPC, Tetris finishes first; then T-spin solutions (not a T-spin mini single, as the wiki doesn't count
+// it), the setup's minimal set, then any other solution; within each, ones that leave a hold-pool piece for the
+// DPC come first.
 // G.guide = {seg, stage:'build'|'pc'|'off', cands:[{o, left, tsd, label}], limit, p0, l0, done, save}
 //   cands: options the board still matches and can still finish, best first; the first is the target shown.
 //   limit: the draw index the next bag starts at; later pieces may only be held ('*' for the solver).
 //   p0/l0: pieces placed and lines cleared when the segment began.
-const SEGS={ms2:{name:'산악쌓기 2호',pieces:20,lines:8},dpc:{name:'DPC',pieces:15,lines:6}};
+// tetris: whether this segment's PC prefers a Tetris finish over T-spins (DPC does)
+const SEGS={ms2:{name:'산악쌓기 2호',pieces:20,lines:8},dpc:{name:'DPC',pieces:15,lines:6,tetris:true}};
 function guidedDrill(o){
   const pool=()=>{const p=PIECES.filter(t=>cfg.dpcHold.includes(t));return p.length?p:['I','O','S','Z'];};
   const chain=()=>o.loop&&cfg.loop;
@@ -931,14 +935,16 @@ function guidedDrill(o){
   let lands={pend:null,map:new Map()};
   const landsFor=p=>{if(lands.pend!==p.tk+p.cur+p.hold)lands={pend:p.tk+p.cur+p.hold,map:new Map()};return lands.map;};
   const rankPC=(p,list)=>{
-    const opt=GUIDE_OPTS[p.opt],minimal=new Map(opt.pcMin.map((t,i)=>[keyOfTiling(t),i])),groups=[[],[],[]];
+    const opt=GUIDE_OPTS[p.opt],minimal=new Map(opt.pcMin.map((t,i)=>[keyOfTiling(t),i])),groups=[[],[],[],[]];
     for(const [t,r] of list){
       if(r<0)continue;
       const left=[...p.pieces];for(const s of t)left.splice(left.indexOf(s.t),1);
       const save=left[0]||null,good=!save||pool().includes(save)?0:1,mi=minimal.get(keyOfTiling(t));
-      if(r>=5)groups[0].push({left:t,label:SPIN_NAME[r],save,rank:[-r,good]});
-      else if(mi!==undefined)groups[1].push({left:t,label:'최소해법 '+'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[mi]+' ('+opt.pcMin.length+'개 중)',save,rank:[good,mi]});
-      else groups[2].push({left:t,label:'기타 해법',save,rank:[good,0]});
+      const tetris=SEGS[p.seg].tetris&&r>=100,spin=r%100;
+      if(tetris)groups[0].push({left:t,label:'테트리스 PC (I를 마지막에)'+(spin>=5?' + '+SPIN_NAME[spin]:''),save,rank:[-spin,good]});
+      else if(spin>=5)groups[1].push({left:t,label:SPIN_NAME[spin],save,rank:[-spin,good]});
+      else if(mi!==undefined)groups[2].push({left:t,label:'최소해법 '+'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[mi]+' ('+opt.pcMin.length+'개 중)',save,rank:[good,mi]});
+      else groups[3].push({left:t,label:'기타 해법',save,rank:[good,0]});
     }
     const cmp=(a,b)=>a.rank[0]-b.rank[0]||a.rank[1]-b.rank[1];
     return groups.flatMap(x=>x.sort(cmp)).map(({rank,...c})=>c);
@@ -968,7 +974,7 @@ function guidedDrill(o){
     g.stage='pc';g.limit=bagEnd(G);
     const v=view(G),lines=SEGS[g.seg].lines-(G.lines-g.l0);
     const pieces=[G.hold,v.cur,...v.rest].filter(t=>t&&t!=='*');
-    const p=g.pend={tk:tilingKey(G.board,lines,pieces),board:G.board.map(r=>r.slice()),lines,pieces,cur:v.cur,hold:G.hold,rest:v.rest,opt:opt.id,i:0,res:[]};
+    const p=g.pend={tk:tilingKey(G.board,lines,pieces),board:G.board.map(r=>r.slice()),lines,pieces,cur:v.cur,hold:G.hold,rest:v.rest,opt:opt.id,seg:g.seg,i:0,res:[]};
     g.cands=rankPC(p,opt.pcMin.map(t=>[t,slotsOrder(p.board,t,p.cur,p.hold,p.rest,landsFor(p))]));
     if(!tilingCache.has(p.tk)&&!jobs.some(j=>j.key===p.tk))jobs.push({key:p.tk,it:pcTilingsSteps(p.board,lines,pieces),done:r=>tilingCache.set(p.tk,r)});
     jobs.push({key:'analyse',it:analysePC()});
