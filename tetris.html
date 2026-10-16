@@ -102,6 +102,9 @@ kbd{font:500 12px var(--mono);color:var(--fg);background:var(--panel);border:1px
 .settings .check{display:flex;gap:8px;align-items:center;margin-top:12px;font-size:13px}
 .settings select{font:500 13px var(--body);color:var(--fg);background:var(--well);border:1px solid var(--edge);border-radius:4px;padding:3px 6px}
 .settings p{margin:8px 0 0;font-size:12px;color:var(--muted);max-width:32ch}
+.settings .sub{margin:12px 0 0;font-size:12px;font-weight:700;color:var(--fg)}
+.pieces{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:6px;font:700 13px var(--mono)}
+.pieces label{display:flex;gap:4px;align-items:center;cursor:pointer}
 
 @media (max-width:719px){
   .stage{grid-template-areas:"hold well next" "stats stats stats";gap:10px}
@@ -148,7 +151,7 @@ kbd{font:500 12px var(--mono);color:var(--fg);background:var(--panel);border:1px
     <span><kbd>Space</kbd></span><span>하드 드롭</span>
     <span><kbd>↑</kbd> <kbd>X</kbd></span><span>시계 방향 회전</span>
     <span><kbd>Z</kbd> <kbd>Ctrl</kbd></span><span>반시계 방향 회전</span>
-    <span><kbd>A</kbd></span><span>180° 회전</span>
+    <span><kbd>A</kbd></span><span>180° 회전 (TETR.IO SRS+ 킥)</span>
     <span><kbd>C</kbd> <kbd>Shift</kbd></span><span>홀드</span>
     <span><kbd>Esc</kbd> <kbd>P</kbd></span><span>일시정지</span>
     <span><kbd>R</kbd></span><span>바로 재시작 (연습: 같은 순서로)</span>
@@ -162,7 +165,15 @@ kbd{font:500 12px var(--mono);color:var(--fg);background:var(--panel);border:1px
     <div class="row"><label for="sdf">SDF</label><input id="sdf" type="range" min="5" max="41" step="1"><output id="sdfv"></output></div>
     <label class="check"><input id="snd" type="checkbox"> 효과음</label>
     <label class="check">좌우 반전 (연습) <select id="mir"><option value="off">끔</option><option value="on">켬</option><option value="random">판마다 무작위</option></select></label>
-    <p>DAS는 좌우키를 누르고 자동 이동이 시작될 때까지의 시간, ARR은 자동 이동 간격, SDF는 소프트 드롭 배속입니다. 좌우 반전은 연습 모드의 시작 보드와 정해진 hold 블록을 뒤집고(L↔J, S↔Z), 다음 판부터 적용됩니다.</p>
+    <p>DAS는 좌우키를 누르고 자동 이동이 시작될 때까지의 시간, ARR은 자동 이동 간격, SDF는 소프트 드롭 배속입니다. 좌우 반전은 연습 모드의 시작 보드와 정해진 hold 블록을 뒤집고(L↔J, S↔Z), 다음 판부터 적용됩니다. DPC는 셋업에 맞춰 자동으로 반전됩니다.</p>
+  </details>
+  <details class="settings">
+    <summary>DPC 연습 설정</summary>
+    <p class="sub">남길 블록 (hold 후보)</p>
+    <div class="pieces" id="dpcHold"></div>
+    <label class="check"><input id="dpcGuide" type="checkbox"> 목표 위치 표시</label>
+    <label class="check"><input id="dpcJudge" type="checkbox"> 배치 판정 (목표와 다르면 실패)</label>
+    <p>셋업은 Hard Drop 위키의 DPC Setups 기준입니다. hold와 블록 순서를 보고 완성할 수 있는 셋업을(반전 포함) 자동으로 고릅니다. 위키는 O, S/Z, I를 남기길 권하고 J/L, T는 피하라고 합니다. hold 후보는 다음 판부터, 표시와 판정은 바로 적용됩니다.</p>
   </details>
 </div>
 
@@ -188,10 +199,12 @@ const DEAD='#4a4560';
 const rotCW=m=>{const n=m.length,r=[];for(let y=0;y<n;y++){r.push([]);for(let x=0;x<n;x++)r[y][x]=m[n-1-x][y];}return r;};
 const ROT={};
 for(const t in SHAPES){ROT[t]=[SHAPES[t]];for(let i=1;i<4;i++)ROT[t].push(rotCW(ROT[t][i-1]));}
-// SRS kick tables (y-up as published; converted on use)
+// Kick tables: TETR.IO's SRS+ (y-up as published; converted on use). The first test is always (0,0).
+// JLSTZ quarter turns are plain SRS; I quarter turns use SRS+'s symmetric table; 180s use TETR.IO's own tables.
 const K_JLSTZ={'0>1':[[0,0],[-1,0],[-1,1],[0,-2],[-1,-2]],'1>0':[[0,0],[1,0],[1,-1],[0,2],[1,2]],'1>2':[[0,0],[1,0],[1,-1],[0,2],[1,2]],'2>1':[[0,0],[-1,0],[-1,1],[0,-2],[-1,-2]],'2>3':[[0,0],[1,0],[1,1],[0,-2],[1,-2]],'3>2':[[0,0],[-1,0],[-1,-1],[0,2],[-1,2]],'3>0':[[0,0],[-1,0],[-1,-1],[0,2],[-1,2]],'0>3':[[0,0],[1,0],[1,1],[0,-2],[1,-2]]};
-const K_I={'0>1':[[0,0],[-2,0],[1,0],[-2,-1],[1,2]],'1>0':[[0,0],[2,0],[-1,0],[2,1],[-1,-2]],'1>2':[[0,0],[-1,0],[2,0],[-1,2],[2,-1]],'2>1':[[0,0],[1,0],[-2,0],[1,-2],[-2,1]],'2>3':[[0,0],[2,0],[-1,0],[2,1],[-1,-2]],'3>2':[[0,0],[-2,0],[1,0],[-2,-1],[1,2]],'3>0':[[0,0],[1,0],[-2,0],[1,-2],[-2,1]],'0>3':[[0,0],[-1,0],[2,0],[-1,2],[2,-1]]};
-const K_180=[[0,0],[0,1],[1,0],[-1,0],[0,-1]];
+const K_I={'0>1':[[0,0],[1,0],[-2,0],[-2,-1],[1,2]],'1>0':[[0,0],[-1,0],[2,0],[-1,-2],[2,1]],'1>2':[[0,0],[-1,0],[2,0],[-1,2],[2,-1]],'2>1':[[0,0],[-2,0],[1,0],[-2,1],[1,-2]],'2>3':[[0,0],[2,0],[-1,0],[2,1],[-1,-2]],'3>2':[[0,0],[1,0],[-2,0],[1,2],[-2,-1]],'3>0':[[0,0],[1,0],[-2,0],[1,-2],[-2,1]],'0>3':[[0,0],[-1,0],[2,0],[2,-1],[-1,2]]};
+const K_180={'0>2':[[0,0],[0,1],[1,1],[-1,1],[1,0],[-1,0]],'1>3':[[0,0],[1,0],[1,2],[1,1],[0,2],[0,1]],'2>0':[[0,0],[0,-1],[-1,-1],[1,-1],[-1,0],[1,0]],'3>1':[[0,0],[-1,0],[-1,2],[-1,1],[0,2],[0,1]]};
+const K_I180={'0>2':[[0,0],[0,1]],'1>3':[[0,0],[1,0]],'2>0':[[0,0],[0,-1]],'3>1':[[0,0],[-1,0]]};
 
 // ---------- fumen ----------
 // Decoder for v115 fumen, the diagram format setups are shared in (fumen.zui.jp, harddrop.com/fumen).
@@ -274,13 +287,121 @@ const $=s=>document.querySelector(s);
 const well=$('#well'),wctx=well.getContext('2d');
 const holdC=$('#hold'),hctx=holdC.getContext('2d');
 const nextC=$('#next'),nctx=nextC.getContext('2d');
-const wellwrap=$('#wellwrap'),feed=$('#feed'),callout=$('#callout'),ov=$('#ov'),card=$('#card'),statsEl=$('#stats');
+const modetag=$('#modetag'),wellwrap=$('#wellwrap'),feed=$('#feed'),callout=$('#callout'),ov=$('#ov'),card=$('#card'),statsEl=$('#stats');
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ---------- DPC setups ----------
+// From the Hard Drop wiki, https://harddrop.com/wiki/DPC_Setups. Rows run top to bottom and sit on the floor.
+// '.' empty, lowercase = the piece kept in hold from the previous PC, 'P' = the T of the T-spin.
+// build is the shape before the T-spin; tsd is the board with that T in place, after any lines the build cleared,
+// so its T sits where it lands on the real board once the build is done.
+// pair: the wiki mirrors this setup depending on piece order, so its mirror ranks right after it;
+// other mirrors are only a last resort (S/Z and J/L holds reach theirs this way, being the only match).
+const DPC_SETUPS=[
+  {hold:'O',name:'Kuruma DPC',build:'.......S../.......SSI/LLLJJ...SI/LOOJZZ.ooI/.OOJ.ZZooI',tsd:'.......S../.......SSI/LLLJJPPPSI/LOOJZZPOOI/.OOJ.ZZOOI'},
+  {hold:'O',name:'TSD DPC',build:'........S./I.......SS/ILOOJJ...S/ILOOJZZ.oo/ILL.J.ZZoo',tsd:'........S./I.......SS/ILOOJJPPPS/ILOOJZZPOO/ILL.J.ZZOO'},
+  {hold:'S',name:'Kuruma DPC',build:'.......S../.......SSI/sLLJJ...SI/ssLJZZ.OOI/.sLJ.ZZOOI',tsd:'.......S../.......SSI/SLLJJPPPSI/SSLJZZPOOI/.SLJ.ZZOOI'},
+  {hold:'S',name:'Lime DPC',build:'...OO...../I..OO...../I...SSZZLL/IJ.SSssZZL/IJJJss...L',tsd:'...OO...../I..OO...../IPPPSSZZLL/IJPSSSSZZL/IJJJSS...L'},
+  {hold:'I',name:'Fake Butter DPC',build:'.....L..../...LLL..../S...ZJIIII/SS.ZZJJJOO/.S.ZiiiiOO',tsd:'.....L..../...LLL..../SPPPZJIIII/SSPZZJJJOO/.S.ZIIIIOO',pair:true},
+  {hold:'I',name:'Pelican DPC',build:'.....OO..I/.....OO..I/SZZ...JJJI/SSZZ.LLLJI/.S...Liiii',tsd:'.....OO..I/.....OO..I/SZZPPPJJJI/SSZZPLLLJI/.S...LIIII',pair:true},
+  {hold:'I',name:'Bad TKI DPC',build:'.ZJ..LLL../ZZJ..LOOS./ZJJ...OOSS/iiii.IIIIS',tsd:'.ZJ..LLL../ZZJ..LOOS./ZJJPPPOOSS/IIIIPIIIIS',pair:true},
+  {hold:'J',name:'MKO SPC',build:'..ZZ.....I/...ZZJ.OOI/LLLSSJjOOI/L.SSJJjjjI',tsd:'.PZZ.....I/.PPZZJ.OOI/LPSSJJJJJI'},
+  {hold:'J',name:'TSM J SPC (O 먼저)',build:'....J...../..SSJJJ..I/.SSZj....I/OOZZj...LI/OOZjj.LLLI',tsd:'....J...../..SSJJJ..I/.SSZJP...I/OOZZJPP.LI/OOZJJPLLLI'},
+  {hold:'J',name:'TSM J SPC (S 먼저)',build:'....J...../..OOJJJ..I/.ZOOj....I/ZZSSj...LI/ZSSjj.LLLI',tsd:'....J...../..OOJJJ..I/.ZOOJP...I/ZZSSJPP.LI/ZSSJJPLLLI'},
+  {hold:'T',name:'OSZ Ball DPC',build:'I.Z......./IZZ......./IZ.....LS./ItJJJOOLSS/ttt.JOOLLS',tsd:'I.Z......./IZZ......./IZPPP..LS./TTTPJOOLLS'}
+];
+const cellIndex=(r,c)=>r*COLS+c;
+const keyOf=cells=>cells.map(([r,c])=>cellIndex(r,c)).sort((a,b)=>a-b).join();
+function cellsKey(t,r,x,y){
+  const m=ROT[t][r],k=[];
+  for(let i=0;i<m.length;i++)for(let j=0;j<m.length;j++)if(m[i][j])k.push(cellIndex(y+i,x+j));
+  return k.sort((a,b)=>a-b).join();
+}
+// Turn a setup into board coordinates: one 4-cell slot per piece of the build, plus the T-spin slot.
+function prepSetup(s,mirrored){
+  const flip=row=>mirrored?[...row].reverse().map(ch=>{const u=ch.toUpperCase(),v=mirrorPiece(u);return ch===u?v:v.toLowerCase();}).join(''):row;
+  const build=s.build.split('/').map(flip),tsd=s.tsd.split('/').map(flip);
+  const top=TOT-build.length,seen=new Set(),slots=[];
+  build.forEach((row,r)=>[...row].forEach((ch,c)=>{
+    if(ch==='.'||seen.has(r+','+c))return;
+    const cells=[],stack=[[r,c]];seen.add(r+','+c);
+    while(stack.length){
+      const [y,x]=stack.pop();cells.push([top+y,x]);
+      for(const [dy,dx] of [[1,0],[-1,0],[0,1],[0,-1]]){
+        const ny=y+dy,nx=x+dx;
+        if(build[ny]&&build[ny][nx]===ch&&!seen.has(ny+','+nx)){seen.add(ny+','+nx);stack.push([ny,nx]);}
+      }
+    }
+    slots.push({id:slots.length,t:ch.toUpperCase(),cells,key:keyOf(cells)});
+  }));
+  const ttop=TOT-tsd.length,tcells=[];
+  tsd.forEach((row,r)=>[...row].forEach((ch,c)=>{if(ch==='P')tcells.push([ttop+r,c]);}));
+  return {name:s.name+(mirrored?' 반전':''),hold:mirrored?mirrorPiece(s.hold):s.hold,mirrored,slots,tsd:{cells:tcells,key:keyOf(tcells)}};
+}
+const DPC_VARIANTS=[
+  ...DPC_SETUPS.flatMap(s=>s.pair?[prepSetup(s,false),prepSetup(s,true)]:[prepSetup(s,false)]),
+  ...DPC_SETUPS.filter(s=>!s.pair).map(s=>prepSetup(s,true))
+];
+
+// Can piece t travel from its spawn and come to rest exactly on the cells in `key`?
+function reachable(b,t,key){
+  let y=HID-2;const x=t==='O'?4:3;
+  if(!fitsOn(b,t,0,x,y))return false;
+  if(fitsOn(b,t,0,x,y+1))y++;
+  const seen=new Set([x+','+y+',0']),todo=[[x,y,0]];
+  while(todo.length){
+    const [px,py,pr]=todo.pop();
+    if(!fitsOn(b,t,pr,px,py+1)&&cellsKey(t,pr,px,py)===key)return true;
+    const next=[[px-1,py,pr],[px+1,py,pr],[px,py+1,pr]].filter(([nx,ny,nr])=>fitsOn(b,t,nr,nx,ny));
+    for(const d of [1,-1,2]){const s=rotateOn(b,t,pr,px,py,d);if(s)next.push([s.x,s.y,s.r]);}
+    for(const n of next){const k=n.join();if(!seen.has(k)){seen.add(k);todo.push(n);}}
+  }
+  return false;
+}
+// Fill cells on a copy of the board and clear full rows; returns the board and the cleared row indices.
+function placeOn(b,cells,t){
+  const nb=b.map(r=>r.slice());
+  for(const [r,c] of cells)nb[r][c]=t;
+  const removed=[];nb.forEach((r,i)=>{if(r.every(Boolean))removed.push(i);});
+  const kept=nb.filter((r,i)=>!removed.includes(i));
+  while(kept.length<TOT)kept.unshift(Array(COLS).fill(0));
+  return {board:kept,removed};
+}
+// Move a slot down past cleared rows (row indices from before the clear).
+function shiftSlot(s,removed){
+  if(!removed.length)return s;
+  const cells=s.cells.map(([r,c])=>[r+removed.filter(x=>x>r).length,c]);
+  return Object.assign({},s,{cells,key:keyOf(cells)});
+}
+// Is there a play, holding at most once per piece, that fills every remaining slot and then lands
+// a T on the T-spin slot? cur is the piece about to spawn, queue the pieces after it.
+function setupFeasible(b,slots,tsd,cur,hold,queue){
+  const memo=new Map();
+  const go=(b,left,ts,cur,hold,qi)=>{
+    if(!cur)return false;
+    const key=left.map(s=>s.id).join('.')+'|'+cur+(hold||'-')+qi;
+    if(memo.has(key))return memo.get(key);
+    let ok=false;
+    // place the current piece, or swap it into hold and place what comes out
+    const tries=[[cur,hold,qi],hold?[hold,cur,qi]:[queue[qi],cur,qi+1]];
+    for(const [p,h,n] of tries){
+      if(ok||!p)continue;
+      if(!left.length){ok=p==='T'&&reachable(b,'T',ts.key);continue;}
+      for(const s of left){
+        if(s.t!==p||!reachable(b,p,s.key))continue;
+        const {board,removed}=placeOn(b,s.cells,p);
+        if(go(board,left.filter(o=>o!==s).map(o=>shiftSlot(o,removed)),ts,queue[n],h,n+1)){ok=true;break;}
+      }
+    }
+    memo.set(key,ok);return ok;
+  };
+  return go(b,slots,tsd,cur,hold,0);
+}
 
 // ---------- storage ----------
 const load=(k,d)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}};
 const save=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}};
-const cfg=Object.assign({das:150,arr:33,sdf:20,sound:true,mirror:'off'},load('tetris.settings',{}));
+const cfg=Object.assign({das:150,arr:33,sdf:20,sound:true,mirror:'off',dpcHold:'IOSZ',dpcGuide:true,dpcJudge:true},load('tetris.settings',{}));
 const best=Object.assign({marathon:0,sprint:0},load('tetris.best',{}));
 
 // ---------- state ----------
@@ -300,14 +421,26 @@ function reset(){G=newGame();flashes=[];feed.textContent='';}
 function bag7(){const b=PIECES.slice();for(let i=b.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[b[i],b[j]]=[b[j],b[i]];}return b;}
 function takeNext(){while(G.queue.length<8)G.queue.push(...M.nextBag(G));return G.queue.shift();}
 
-function fits(t,r,x,y){
-  const m=ROT[t][r],b=G.board;
+function fitsOn(b,t,r,x,y){
+  const m=ROT[t][r];
   for(let i=0;i<m.length;i++)for(let j=0;j<m.length;j++){
     if(!m[i][j])continue;const bx=x+j,by=y+i;
     if(bx<0||bx>=COLS||by>=TOT)return false;
     if(by>=0&&b[by][bx])return false;
   }
   return true;
+}
+const fits=(t,r,x,y)=>fitsOn(G.board,t,r,x,y);
+// SRS rotation with kicks: the resulting state, or null when every kick is blocked
+function rotateOn(b,t,r,x,y,d){
+  if(t==='O')return null;
+  const to=(r+(d===2?2:d)+4)%4;
+  const kicks=(d===2?(t==='I'?K_I180:K_180):(t==='I'?K_I:K_JLSTZ))[r+'>'+to];
+  for(let i=0;i<kicks.length;i++){
+    const nx=x+kicks[i][0],ny=y-kicks[i][1];
+    if(fitsOn(b,t,to,nx,ny))return {r:to,x:nx,y:ny,kick:i};
+  }
+  return null;
 }
 const grounded=()=>{const c=G.cur;return !fits(c.type,c.rot,c.x,c.y+1);};
 
@@ -331,16 +464,9 @@ function tryMove(dx,dy){
   return true;
 }
 function rotate(d){
-  const c=G.cur;
-  if(!c||c.type==='O')return;
-  const from=c.rot,to=(from+(d===2?2:d)+4)%4;
-  const kicks=d===2?K_180:(c.type==='I'?K_I:K_JLSTZ)[from+'>'+to];
-  for(let i=0;i<kicks.length;i++){
-    const dx=kicks[i][0],dy=-kicks[i][1];
-    if(fits(c.type,to,c.x+dx,c.y+dy)){
-      c.x+=dx;c.y+=dy;c.rot=to;afterMove();G.lastRotate=true;G.lastKick=i;return;
-    }
-  }
+  const c=G.cur;if(!c)return;
+  const s=rotateOn(G.board,c.type,c.rot,c.x,c.y,d);if(!s)return;
+  c.x=s.x;c.y=s.y;c.rot=s.r;afterMove();G.lastRotate=true;G.lastKick=d===2?-1:s.kick;
 }
 function hardDrop(){
   const c=G.cur;if(!c)return;let n=0;
@@ -367,6 +493,7 @@ function tspinKind(){
 function lockPiece(){
   const ts=tspinKind(),c=G.cur,b=G.board;
   const m=ROT[c.type][c.rot];let above=true;
+  const placed={type:c.type,key:cellsKey(c.type,c.rot,c.x,c.y)};
   for(let i=0;i<m.length;i++)for(let j=0;j<m.length;j++){
     if(!m[i][j])continue;const by=c.y+i;
     if(by>=0)b[by][c.x+j]=c.type;
@@ -380,7 +507,8 @@ function lockPiece(){
   const n=full.length,now=performance.now();
   if(n&&!reduced)full.forEach(r=>flashes.push({r,t:now}));
   scoreClear(n,ts);
-  const end=M.afterLock&&M.afterLock(G);
+  placed.removed=full;
+  const end=M.afterLock&&M.afterLock(G,placed);
   if(end==='next'){newRound();return;}
   if(end){endGame(end==='win');return;}
   G.holdUsed=false;
@@ -497,6 +625,9 @@ function sfx(n){
 //   result(G,won)      result card rows: [label, value, true for a hero number | 'note' for a sentence]
 //   title(won)         optional: result card heading
 //   practice           optional: enables undo (Backspace), retry with the same pieces (R) and new pieces (N)
+//   tag(G)             optional: text next to the title (default: name, plus a mirror note)
+//   targets(G)         optional: cells to outline on the board: [{t, cells:[[row,col]], now}]
+//   afterLock gets a second argument: {type, key, removed} for the piece just locked
 const MODES={
   marathon:{
     name:'마라톤',
@@ -518,7 +649,7 @@ const MODES={
     recordBest(G,won){if(won&&(!best.sprint||G.elapsed<best.sprint)){best.sprint=G.elapsed;return true;}return false;},
     result:(G,won)=>[['기록',won?fmt(G.elapsed):'—',true],['지운 줄',G.lines+' / 40'],['블록 수',G.pieces],['PPS',pps(G)],['최고 기록',best.sprint?fmt(best.sprint):'—']]
   },
-  dpc:pcDrill({key:'dpc',name:'DPC 연습',desc:'SDPC 직후 · 홀드 1개 + 4·5가방, 15블록으로 퍼펙트 클리어',bags:2,pieces:15})
+  dpc:dpcDrill()
 };
 // Perfect-clear drill. Starts from `board` (fumen; empty when omitted) with a random piece already in hold,
 // as if left over from the previous PC, followed by `bags` fresh bags. Success is a perfect clear within
@@ -535,7 +666,8 @@ function pcDrill(o){
       G.mirror=cfg.mirror==='on'||(cfg.mirror==='random'&&Math.random()<.5);
       if(o.board)G.board=decodeFumen(o.board)[0].field;
       if(G.mirror)G.board=mirrorRows(G.board);
-      G.hold=o.hold?(G.mirror?mirrorPiece(o.hold):o.hold):PIECES[Math.random()*7|0];
+      const pool=o.holdPool?o.holdPool():PIECES;
+      G.hold=o.hold?(G.mirror?mirrorPiece(o.hold):o.hold):pool[Math.random()*pool.length|0];
       for(let i=0;i<o.bags;i++)G.queue.push(...bag7());
       G.need=(G.board.flat().filter(Boolean).length+4*o.pieces)/10;
     },
@@ -563,6 +695,63 @@ function pcDrill(o){
     result:G=>[['원인',G.fail||'블록이 천장에 닿았습니다','note'],['놓은 블록',G.pieces+' / '+o.pieces],['성공',session.ok+' / '+session.tries],['최고 연속',(best[o.key]||0)+'회']]
   };
 }
+// DPC drill: a pcDrill whose hold comes from the chosen pool, plus setup guidance.
+// G.dpc tracks the setups (DPC_VARIANTS, mirrors included) the board still matches and can still finish:
+// stage 'build' while placing the build and its T-spin, 'pc' once the T-spin is in, 'off' after leaving every setup.
+// The first one left is shown as the target (cfg.dpcGuide); with cfg.dpcJudge leaving them all is a miss.
+function dpcDrill(){
+  const base=pcDrill({key:'dpc',name:'DPC 연습',desc:'SDPC 직후 · 홀드 1개 + 4·5가방, 15블록으로 퍼펙트 클리어',bags:2,pieces:15,
+    holdPool:()=>{const p=PIECES.filter(t=>cfg.dpcHold.includes(t));return p.length?p:['I','O','S','Z'];}});
+  const viable=G=>G.dpc.cands=G.dpc.cands.filter(c=>setupFeasible(G.board,c.left,c.tsd,G.queue[0],G.hold,G.queue.slice(1)));
+  const plan=G=>G.dpc&&G.dpc.stage==='build'?G.dpc.cands[0]:null;
+  return Object.assign({},base,{
+    setup(G){
+      base.setup(G);
+      G.dpc={stage:'build',cands:DPC_VARIANTS.map((v,i)=>({v:i,left:v.slots,tsd:v.tsd})).filter(c=>DPC_VARIANTS[c.v].hold===G.hold)};
+      viable(G);
+      if(!G.dpc.cands.length)G.dpc.stage='off';
+      G.mirror=!!(plan(G)&&DPC_VARIANTS[plan(G).v].mirrored);
+    },
+    afterLock(G,placed){
+      const d=G.dpc;
+      if(d.stage==='build'){
+        const kept=[];
+        for(const c of d.cands){
+          if(c.left.length){
+            const s=c.left.find(s=>s.t===placed.type&&s.key===placed.key);
+            if(!s)continue;
+            c.left=c.left.filter(o=>o!==s);
+          }else if(placed.type!=='T'||c.tsd.key!==placed.key)continue;
+          else{d.stage='pc';d.done=DPC_VARIANTS[c.v].name;break;}
+          c.left=c.left.map(o=>shiftSlot(o,placed.removed));
+          kept.push(c);
+        }
+        if(d.stage==='pc')d.cands=[];
+        else{
+          const matched=kept.length>0;
+          d.cands=kept;viable(G);
+          if(!d.cands.length){
+            d.stage='off';
+            if(cfg.dpcJudge){G.fail=matched?'이 블록 순서로는 더 이상 셋업을 완성할 수 없습니다':'목표 위치가 아닙니다';return 'lose';}
+          }
+        }
+        const p=plan(G);G.mirror=!!(p&&DPC_VARIANTS[p.v].mirrored);
+      }
+      return base.afterLock(G,placed);
+    },
+    tag(G){
+      const d=G.dpc,p=plan(G);
+      if(!d)return this.name;
+      return this.name+' · '+(p?DPC_VARIANTS[p.v].name:d.stage==='pc'?(d.done||'')+' → PC':'셋업 없음');
+    },
+    // slots still to fill (or the T-spin slot once the build is done); `now` marks ones the current piece fits
+    targets(G){
+      const p=plan(G);if(!p||!cfg.dpcGuide)return [];
+      const cur=G.cur&&G.cur.type;
+      return p.left.length?p.left.map(s=>({t:s.t,cells:s.cells,now:s.t===cur||s.t===G.hold&&!G.holdUsed})):[{t:'T',cells:p.tsd.cells,now:true}];
+    }
+  });
+}
 if(!MODES[mode])mode='marathon';
 M=MODES[mode];
 
@@ -574,7 +763,6 @@ function turnStart(){if(M.practice)hist.push(structuredClone(G));}
 function newRound(){
   clearTimeout(endTimer);
   G=newGame();if(M.setup)M.setup(G);
-  $('#modetag').textContent=M.name+(G.mirror?' · 좌우 반전':'');$('#modetag').classList.toggle('mirrored',!!G.mirror);
   hist=[];roundCounted=false;
   state='ready';readyT=M.practice?700:1100;
   ov.hidden=true;
@@ -638,7 +826,7 @@ function endGame(won){
 function showMenu(){
   clearTimeout(endTimer);
   state='menu';reset();hist=[];
-  $('#modetag').textContent='';$('#modetag').classList.remove('mirrored');$('#pauseBtn').hidden=true;$('#undoBtn').hidden=true;
+  $('#pauseBtn').hidden=true;$('#undoBtn').hidden=true;
   card.innerHTML='<p class="eyebrow">모드 선택</p>'+
     Object.keys(MODES).map(k=>'<button class="mode" data-mode="'+k+'" type="button"><span class="mname">'+MODES[k].name+'</span><span class="mdesc">'+MODES[k].desc()+'</span></button>').join('')+
     '<p class="hint">Enter를 누르면 '+M.name+' 바로 시작 · SRS 회전, 7-bag, 홀드 지원</p>';
@@ -715,6 +903,15 @@ function render(now){
     if(r<HID+4)danger=true;
     cell(wctx,c*CS,(r-HID)*CS,CS,dead?DEAD:COLORS[v]);
   }
+  if(M.targets&&state!=='menu'&&!dead)for(const s of M.targets(G)){
+    wctx.strokeStyle=COLORS[s.t];wctx.fillStyle=COLORS[s.t];wctx.lineWidth=1.5;
+    for(const [r,c] of s.cells){
+      if(r<HID)continue;
+      wctx.globalAlpha=s.now?.28:.1;wctx.fillRect(c*CS+3,(r-HID)*CS+3,CS-6,CS-6);
+      wctx.globalAlpha=s.now?.9:.4;wctx.setLineDash([4,3]);wctx.strokeRect(c*CS+3.5,(r-HID)*CS+3.5,CS-7,CS-7);
+    }
+    wctx.setLineDash([]);wctx.globalAlpha=1;
+  }
   if(cur&&(state==='play'||state==='paused')){
     const m=ROT[cur.type][cur.rot],col=COLORS[cur.type];
     let gy=cur.y;while(fits(cur.type,cur.rot,cur.x,gy+1))gy++;
@@ -731,6 +928,9 @@ function render(now){
     wctx.fillStyle='rgba(255,255,255,'+(a*.55)+')';wctx.fillRect(0,(f.r-HID)*CS,W,CS);return true;
   });
   wellwrap.classList.toggle('danger',danger&&!dead);
+  const tag=state==='menu'?'':M.tag?M.tag(G):M.name+(G.mirror?' · 좌우 반전':'');
+  if(modetag.textContent!==tag)modetag.textContent=tag;
+  modetag.classList.toggle('mirrored',state!=='menu'&&!!G.mirror);
 
   hctx.clearRect(0,0,holdC.width,holdC.height);
   if(G.hold)drawMini(hctx,G.hold,(PS*4+16)/2,PS*1.5,PS,G.holdUsed||dead);
@@ -779,6 +979,12 @@ bindRange('arr','arr',v=>v===0?'즉시':v+'ms');
 bindRange('sdf','sdf',v=>v>40?'∞':v+'x');
 const snd=$('#snd');snd.checked=cfg.sound;snd.addEventListener('change',()=>{cfg.sound=snd.checked;save('tetris.settings',cfg);});
 const mir=$('#mir');mir.value=cfg.mirror;mir.addEventListener('change',()=>{cfg.mirror=mir.value;save('tetris.settings',cfg);});
+const dpcHold=$('#dpcHold');
+dpcHold.innerHTML=['O','S','Z','I','J','L','T'].map(t=>'<label style="color:'+COLORS[t]+'"><input type="checkbox" value="'+t+'"'+(cfg.dpcHold.includes(t)?' checked':'')+'> '+t+'</label>').join('');
+dpcHold.addEventListener('change',()=>{cfg.dpcHold=[...dpcHold.querySelectorAll('input:checked')].map(i=>i.value).join('');save('tetris.settings',cfg);});
+for(const [id,key] of [['dpcGuide','dpcGuide'],['dpcJudge','dpcJudge']]){
+  const el=$('#'+id);el.checked=cfg[key];el.addEventListener('change',()=>{cfg[key]=el.checked;save('tetris.settings',cfg);});
+}
 
 layout();reset();showMenu();requestAnimationFrame(frame);
 })();
