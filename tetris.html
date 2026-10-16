@@ -168,12 +168,13 @@ kbd{font:500 12px var(--mono);color:var(--fg);background:var(--panel);border:1px
     <p>DAS는 좌우키를 누르고 자동 이동이 시작될 때까지의 시간, ARR은 자동 이동 간격, SDF는 소프트 드롭 배속입니다. 좌우 반전은 연습 모드의 시작 보드와 정해진 hold 블록을 뒤집고(L↔J, S↔Z), 다음 판부터 적용됩니다. DPC는 셋업에 맞춰 자동으로 반전됩니다.</p>
   </details>
   <details class="settings">
-    <summary>DPC 연습 설정</summary>
-    <p class="sub">남길 블록 (hold 후보)</p>
+    <summary>연습 설정 (DPC · 산악쌓기 2호)</summary>
+    <p class="sub">남길 블록 (DPC hold 후보)</p>
     <div class="pieces" id="dpcHold"></div>
     <label class="check"><input id="dpcGuide" type="checkbox"> 목표 위치 표시</label>
     <label class="check"><input id="dpcJudge" type="checkbox"> 배치 판정 (목표와 다르면 실패)</label>
-    <p>셋업은 Hard Drop 위키의 DPC Setups 기준입니다. hold와 블록 순서를 보고 완성할 수 있는 셋업을(반전 포함) 자동으로 고릅니다. 위키는 O, S/Z, I를 남기길 권하고 J/L, T는 피하라고 합니다. hold 후보는 다음 판부터, 표시와 판정은 바로 적용됩니다.</p>
+    <label class="check"><input id="loop" type="checkbox"> 산악쌓기 2호: PC 후 DPC로 이어서 무한 루프</label>
+    <p>셋업은 Hard Drop 위키(DPC Setups, Mountainous Stacking) 기준입니다. 블록 순서와 hold를 보고 완성할 수 있는 셋업과 PC 해법을(반전 포함) 자동으로 고릅니다. DPC를 시작할 때 hold에 둘 블록은 위 후보 중에서 고르고, 산악쌓기 2호의 PC에서는 후보 블록을 남기는 해법을 먼저 보여 줍니다. 위키는 O, S/Z, I를 남기길 권하고 J/L, T는 피하라고 합니다. hold 후보는 다음 판부터, 나머지는 바로 적용됩니다.</p>
   </details>
 </div>
 
@@ -322,10 +323,10 @@ function cellsKey(t,r,x,y){
 // Turn a setup into board coordinates: one 4-cell slot per piece of the build, plus the T-spin slot.
 function prepSetup(s,mirrored){
   const flip=row=>mirrored?[...row].reverse().map(ch=>{const u=ch.toUpperCase(),v=mirrorPiece(u);return ch===u?v:v.toLowerCase();}).join(''):row;
-  const build=s.build.split('/').map(flip),tsd=s.tsd.split('/').map(flip);
+  const build=s.build.split('/').map(flip),tsd=s.tsd?s.tsd.split('/').map(flip):null;
   const top=TOT-build.length,seen=new Set(),slots=[];
   build.forEach((row,r)=>[...row].forEach((ch,c)=>{
-    if(ch==='.'||seen.has(r+','+c))return;
+    if(ch==='.'||ch==='G'||ch==='P'||seen.has(r+','+c))return;
     const cells=[],stack=[[r,c]];seen.add(r+','+c);
     while(stack.length){
       const [y,x]=stack.pop();cells.push([top+y,x]);
@@ -336,15 +337,25 @@ function prepSetup(s,mirrored){
     }
     slots.push({id:slots.length,t:ch.toUpperCase(),cells,key:keyOf(cells)});
   }));
-  const ttop=TOT-tsd.length,tcells=[];
-  tsd.forEach((row,r)=>[...row].forEach((ch,c)=>{if(ch==='P')tcells.push([ttop+r,c]);}));
-  // minimal PC solutions: one letter per piece (each appears once), rows on the floor
+  // the T-spin: its own diagram (drawn after the build's line clears), or P cells in the build itself
+  const src=s.tsd?tsd:build,ttop=TOT-src.length,tcells=[];
+  src.forEach((row,r)=>[...row].forEach((ch,c)=>{if(ch==='P')tcells.push([ttop+r,c]);}));
+  // minimal PC solutions: one letter per piece (lowercase for a second piece of a kind), rows on the floor
   const pcMin=(s.pc||[]).map(d=>{
     const rows=d.split('/').map(flip),top=TOT-rows.length,by={};
     rows.forEach((row,r)=>[...row].forEach((ch,c)=>{if(ch!=='.')(by[ch]=by[ch]||[]).push([top+r,c]);}));
-    return Object.keys(by).map((t,id)=>({id,t,cells:by[t],key:keyOf(by[t])}));
+    return Object.keys(by).map((k,id)=>({id,t:k.toUpperCase(),cells:by[k],key:keyOf(by[k])}));
   });
-  return {name:s.name+(mirrored?' 반전':''),hold:mirrored?mirrorPiece(s.hold):s.hold,mirrored,slots,tsd:{cells:tcells,key:keyOf(tcells)},pcMin};
+  // lines the T-spin clears; when the build clears none of its own, the T may go in before the build is done
+  // (the wiki's "T-spin in the middle of the bag"), as long as it clears exactly those lines
+  let spin=null;
+  if(tcells.length){
+    const bd=Array.from({length:TOT},()=>Array(COLS).fill(0));
+    for(const sl of slots)for(const [r,c] of sl.cells)bd[r][c]=sl.t;
+    const own=placeOn(bd,[],0);
+    spin={cells:tcells,key:keyOf(tcells),lines:placeOn(own.board,tcells,'T').removed.length,early:!own.removed.length};
+  }
+  return {name:s.name+(mirrored?' 반전':''),hold:s.hold&&(mirrored?mirrorPiece(s.hold):s.hold),mirrored,slots,tsd:spin,pcMin};
 }
 const DPC_VARIANTS=[
   ...DPC_SETUPS.flatMap(s=>s.pair?[prepSetup(s,false),prepSetup(s,true)]:[prepSetup(s,false)]),
@@ -382,19 +393,25 @@ function shiftSlot(s,removed){
   return Object.assign({},s,{cells,key:keyOf(cells)});
 }
 // Is there a play, holding at most once per piece, that fills every remaining slot and then lands
-// a T on the T-spin slot? cur is the piece about to spawn, queue the pieces after it.
+// a T on the T-spin slot (if there is one)? cur is the piece about to spawn, queue the pieces after it;
+// '*' is a piece that may only go into hold.
 function setupFeasible(b,slots,tsd,cur,hold,queue){
   const memo=new Map();
   const go=(b,left,ts,cur,hold,qi)=>{
+    if(!left.length&&!ts)return true;
     if(!cur)return false;
-    const key=left.map(s=>s.id).join('.')+'|'+cur+(hold||'-')+qi;
+    const key=left.map(s=>s.id).join('.')+(ts?'':'!')+'|'+cur+(hold||'-')+qi;
     if(memo.has(key))return memo.get(key);
     let ok=false;
     // place the current piece, or swap it into hold and place what comes out
     const tries=[[cur,hold,qi],hold?[hold,cur,qi]:[queue[qi],cur,qi+1]];
     for(const [p,h,n] of tries){
-      if(ok||!p)continue;
+      if(ok||!p||p==='*')continue;
       if(!left.length){ok=p==='T'&&reachable(b,'T',ts.key);continue;}
+      if(p==='T'&&ts&&ts.early&&reachable(b,'T',ts.key)){
+        const {board,removed}=placeOn(b,ts.cells,'T');
+        if(removed.length===ts.lines&&go(board,left.map(o=>shiftSlot(o,removed)),null,queue[n],h,n+1)){ok=true;break;}
+      }
       for(const s of left){
         if(s.t!==p||!reachable(b,p,s.key))continue;
         const {board,removed}=placeOn(b,s.cells,p);
@@ -405,6 +422,21 @@ function setupFeasible(b,slots,tsd,cur,hold,queue){
   };
   return go(b,slots,tsd,cur,hold,0);
 }
+
+// Mountainous Stacking 2, from the Hard Drop wiki (https://harddrop.com/wiki/Mountainous_Stacking).
+// The first bag (L kept in hold), then second-bag setups drawn over it: G is the first bag, P the T of the
+// T-spin triple, lowercase the L held from the first bag. Setup D' is the wiki's alternative D shape.
+// Ordered by PC rate (bonus 99.76%, A 99.29%, B/C 98.57%, D 97.46%), which is the order the guide prefers them in.
+// pc: minimal PC sets for what the T-spin triple leaves, as for DPC.
+const MS2_BAG1={name:'1가방',build:'IS......../ISS....T../IJS.ZZTTOO/IJJJ.ZZTOO'};
+const MS2_SETUPS=[
+  {name:'보너스 셋업',build:'lLLL....../lLJJ....../llJ....SS./GGJPZZSSOO/GGGPPZZGOO/GGGPGGGGGG/GGGG.GGGGG',pc:['IIIIOOiiii/....OOZZLL/....JJJZZL/...TTTJ..L/....T.....','IIIIOOSLLi/....OOSSLi/....JJJSLi/...TTTJ..i/....T.....','IIIIJJLLLi/....JSLOOi/....JSSOOi/...TTTS..i/....T.....','IIIIJJJLLi/....OOJZLi/....OOZZLi/...TTTZ..i/....T.....','IIIIOOJJLL/....OOJZZL/....iiiiZZ/...TTTJ..L/....T.....','IIIILLLJJJ/....LZOOSJ/....ZZOOSS/...iiii..S/....Z.....','IIIIJJSTTT/....ZZSSLL/....JZZSTL/...iiii..L/....J.....','IIIILOOJJJ/....LOOZSJ/....LLZZSS/...TTTZ..S/....T.....','IIIIJSSOOi/....JJJOOi/....SSLLLi/...TTTL..i/....T.....','IIIIJJZOOi/....JZZOOi/....SSLLLi/...SSZL..i/....J.....','IIIISOOZJi/....SSZZJi/....TSZJJi/...TTOO..i/....T.....','IIIITTTZSS/....JJZZLL/....JTZSSL/...iiii..L/....J.....','IIIIZZSTTT/....JJSSLL/....JZZSTL/...iiii..L/....J.....','IIIILLLOOi/....ZZJOOi/....SSJJJi/...SSZZ..i/....L.....','IIIIOOZZLi/....OOLLLi/....JJJZZi/...TTTJ..i/....T.....','IIIIZZLLLi/....JZZOOi/....JJJOOi/...TTTL..i/....T.....','IIIIiiiiOO/....ZZSSOO/....TZZJJJ/...TTSS..J/....T.....','IIIIiiiiOO/....ZZSSOO/....TSSJJJ/...TTZZ..J/....T.....','IIIIZZSSOO/....iiiiOO/....TSSJJJ/...TTZZ..J/....T.....','IIIILLLOOi/....SSJOOi/....ZZJJJi/...SSZZ..i/....L.....']},
+  {name:'셋업 A',build:'LL.......I/lL.......I/lLJJ.....I/llJ....SSI/GGJPZZSSOO/GGGPPZZGOO/GGGPGGGGGG/GGGG.GGGGG',pc:['..JIIIILL./..JJJSSZL./....SSZZL./...TTTZ.../....T.....','..OOJJTTT./..OOJSSTL./....SSLLL./...IIII.../....J.....','..IIIIZOO./..JJJZZOO./....JZLLL./...TTTL.../....T.....','..LLLIIII./..LTTTJOO./....SSJOO./...SSJJ.../....T.....','..JZZIIII./..JJJLLOO./....ZZLOO./...TTTL.../....T.....','..OOJSSLL./..OOJJJZL./....SSZZL./...TTTZ.../....T.....','..OOJJSLL./..OOJTSSL./....TTTSL./...IIII.../....J.....','..OOIIIIJ./..OOZZSSJ./....TZZJJ./...TTSS.../....T.....','..LLLIIII./..LSJJJOO./....TTTOO./...SSTJ.../....S.....','..OOIIIIJ./..OOZZSSJ./....TSSJJ./...TTZZ.../....T.....','..OOLLLSS./..OOLZJJJ./....ZZSSJ./...IIII.../....Z.....','..OOZZJJJ./..OOTZZSS./....TTSSJ./...IIII.../....T.....','..JJJIIII./..ZZSLLOO./....SSLOO./...ZZSL.../....J.....','..TTTSSZJ./..IIIIZZJ./....SSZJJ./...TLLL.../....L.....','..JTTTZOO./..JJJZZOO./....SSLLL./...SSZL.../....T.....','..TTTSLLL./..JJJSSOO./....JZSOO./...TZZL.../....Z.....','..SLLIIII./..SSLZJOO./....ZZJOO./...SZJJ.../....L.....','..SZZLLOO./..SSZZLOO./....TIIII./...STTL.../....T.....','..LLLZJOO./..LSZZJOO./....ZIIII./...SSJJ.../....S.....','..SJJJLLL./..SSIJZOO./....IZZOO./...SIZL.../....I.....','..JTTTZZL./..JJJSSZZ./....SSLLL./...IIII.../....T.....']},
+  {name:'셋업 B',build:'IIII....../lLLL....../lLJJ....../llJ....SS./GGJPZZSSOO/GGGPPZZGOO/GGGPGGGGGG/GGGG.GGGGG',pc:['....OOIIII/....OOZZLL/....JJJZZL/...TTTJ..L/....T.....','....OOSLLI/....OOSSLI/....JJJSLI/...TTTJ..I/....T.....','....JJLLLI/....JSLOOI/....JSSOOI/...TTTS..I/....T.....','....JJJLLI/....OOJZLI/....OOZZLI/...TTTZ..I/....T.....','....JJIIII/....JSZZLL/....JSSZZL/...TTTS..L/....T.....','....JJZOOI/....JZZOOI/....JZLLLI/...TTTL..I/....T.....','....JSSLLI/....JJJZLI/....SSZZLI/...TTTZ..I/....T.....','....IOOJJJ/....IOOZSJ/....ILZZSS/...LLLZ..S/....I.....','....OOJJLL/....OOJZZL/....IIIIZZ/...TTTJ..L/....T.....','....LLLJJJ/....LZOOSJ/....ZZOOSS/...IIII..S/....Z.....','....JSSOOI/....JJJOOI/....SSLLLI/...TTTL..I/....T.....','....SOOZJI/....SSZZJI/....TSZJJI/...TTOO..I/....T.....','....IIIILL/....OOJJSS/....OOJSSL/...TTTJ..L/....T.....','....IIIISS/....OOJJLL/....OOJSSL/...TTTJ..L/....T.....','....JJZOOI/....JZZOOI/....SSLLLI/...SSZL..I/....J.....','....OOZZLI/....OOLLLI/....JJJZZI/...TTTJ..I/....T.....','....IIIIOO/....ZZSSOO/....TZZJJJ/...TTSS..J/....T.....','....JJSTTT/....ZZSSLL/....JZZSTL/...IIII..L/....J.....','....ZZLLLI/....JZZOOI/....JJJOOI/...TTTL..I/....T.....','....LLLJJJ/....LSSZOO/....SSZZOO/...TTTZ..J/....T.....','....LLLOOI/....ZZJOOI/....SSJJJI/...SSZZ..I/....L.....','....JJIIII/....JOOTLL/....SSTTTL/...SSOO..L/....J.....','....ZZSSOO/....IIIIOO/....TSSJJJ/...TTZZ..J/....T.....','....LLLJJJ/....TTTZOO/....SSZZOO/...SSTZ..J/....L.....']},
+  {name:'셋업 C',build:'JJOO....../JSOO..l..I/JSS...lLLI/GGSPZZllLI/GGGPPZZGLI/GGGPGGGGGG/GGGG.GGGGG',pc:['IIIILLLJJJ/....LSSOOJ/....SS.OO./...TTT..../....T.....','IIIIJJZLOO/....JZZLOO/....JZ.LL./...TTT..../....T.....','IIIIJJJLLL/....OOJLSS/....OO.SS./...TTT..../....T.....','IIIIJJZLLL/....JZZLSS/....JZ.SS./...TTT..../....T.....','IIIIJSSLOO/....JJJLOO/....SS.LL./...TTT..../....T.....','IIIIOOLJSS/....LLLJJJ/....OO.SS./...TTT..../....T.....','IIIIJJZLOO/....JZZLOO/....SS.LL./...SSZ..../....J.....','IIIIOOLJJZ/....LLLJZZ/....OO.JZ./...TTT..../....T.....','IIIISLLLOO/....SSZZOO/....TS.ZZ./...TTL..../....T.....','IIIILLLJJJ/....TTTOOJ/....SS.OO./...SST..../....L.....','IIIILLLJJZ/....TTTJZZ/....SS.JZ./...SST..../....L.....','IIIITLLLOO/....SLZZOO/....SS.ZZ./...TTS..../....T.....','IIIITOOJJZ/....SOOJZZ/....SS.JZ./...TTS..../....T.....','IIIITJZZOO/....SJJJOO/....SS.ZZ./...TTS..../....T.....']},
+  {name:'셋업 D',build:'........SS/IIII..lSSL/JJJ...lLLL/GGJPZZllOO/GGGPPZZGOO/GGGPGGGGGG/GGGG.GGGGG',pc:['OOJIIIILLL/OOJJJSSL../....SS..../...TTT..../....T.....','OOLLLJIIII/OOLZZJJJ../....ZZ..../...TTT..../....T.....','JIIIIOOLLL/JJJZZOOL../....ZZ..../...TTT..../....T.....','OOIIIIZLLL/OOTTTZZL../....JJ..../...TJZ..../....J.....','OOSTTTIIII/OOSSTLLL../....JJ..../...SJL..../....J.....','OOSTTTZLLL/OOSSTZZL../....JJ..../...SJZ..../....J.....','OOIIIIZLLL/OOJJJZZL../....SS..../...SSZ..../....J.....','OOSJJJZLLL/OOSSIZZL../....IZ..../...SIJ..../....I.....']},
+  {name:"셋업 D'",build:'........SS/OOJJ..lSSI/OOJ...lLLI/GGJPZZllLI/GGGPPZZGLI/GGGPGGGGGG/GGGG.GGGGG',pc:['OOJIIIILLL/OOJJJSSL../....SS..../...TTT..../....T.....','OOLLLJIIII/OOLZZJJJ../....ZZ..../...TTT..../....T.....','JIIIIOOLLL/JJJZZOOL../....ZZ..../...TTT..../....T.....','OOIIIIZLLL/OOTTTZZL../....JJ..../...TJZ..../....J.....','OOSTTTIIII/OOSSTLLL../....JJ..../...SJL..../....J.....','OOSTTTZLLL/OOSSTZZL../....JJ..../...SJZ..../....J.....','OOIIIIZLLL/OOJJJZZL../....SS..../...SSZ..../....J.....','OOSJJJZLLL/OOSSIZZL../....IZ..../...SIJ..../....I.....']}
+];
 
 // ---------- PC solver ----------
 // Can piece t travel from its spawn and come to rest on the cells in `key`? -1 if not, otherwise the best
@@ -429,10 +461,13 @@ function landSpin(b,t,key){
   }
   return best;
 }
-// Ways to fill every empty cell of the bottom `lines` rows with one each of `pieces`, ignoring order.
+// Ways to fill every empty cell of the bottom `lines` rows with `pieces` (each used at most as often as listed;
+// some may be left over), ignoring order.
 // A piece may skip rows (it would land after they clear), so a tiling is only a set of slots; slotsOrder
 // decides whether some order actually builds it. Slots: {id,t,cells,key}, rows as they are now.
-function pcTilings(b,lines,pieces){
+function pcTilings(b,lines,pieces){const it=pcTilingsSteps(b,lines,pieces);let r;while(!(r=it.next()).done);return r.value;}
+// the same, a step at a time (yields every few hundred search nodes) for background work
+function* pcTilingsSteps(b,lines,pieces){
   const floor=TOT-lines,free=new Set(),byCell=new Map();
   for(let r=floor;r<TOT;r++)for(let c=0;c<COLS;c++)if(!b[r][c])free.add(r*COLS+c);
   const rowSets=[];
@@ -450,24 +485,28 @@ function pcTilings(b,lines,pieces){
       }
     }
   }
-  const out=[],used=new Set(),covered=new Set(),chosen=[];
-  (function fill(){
+  const out=[],left={},covered=new Set(),chosen=[];let nodes=0;
+  for(const t of pieces)left[t]=(left[t]||0)+1;
+  function* fill(){
+    if(++nodes%300===0)yield;
     let target=-1;for(const i of free)if(!covered.has(i)){target=i;break;}
     if(target<0){out.push(chosen.map((p,id)=>({id,t:p.t,cells:p.cells,key:p.key})));return;}
     for(const pl of (byCell.get(target)||new Map()).values()){
-      if(used.has(pl.t)||pl.cells.some(([r,c])=>covered.has(r*COLS+c)))continue;
-      used.add(pl.t);pl.cells.forEach(([r,c])=>covered.add(r*COLS+c));chosen.push(pl);
-      fill();
-      used.delete(pl.t);pl.cells.forEach(([r,c])=>covered.delete(r*COLS+c));chosen.pop();
+      if(!left[pl.t]||pl.cells.some(([r,c])=>covered.has(r*COLS+c)))continue;
+      left[pl.t]--;pl.cells.forEach(([r,c])=>covered.add(r*COLS+c));chosen.push(pl);
+      yield* fill();
+      left[pl.t]++;pl.cells.forEach(([r,c])=>covered.delete(r*COLS+c));chosen.pop();
     }
-  })();
+  }
+  yield* fill();
   return out;
 }
 // Can these slots all be filled playing cur, then the queue, holding at most once per piece? '*' in the queue
 // is a piece that may only go into hold (the next bag, which a loop leaves alone). Returns -1 if not, otherwise
 // the best T-spin the order allows: lines cleared * 3 + (2 full | 1 mini), 0 for none.
 // `lands` caches landSpin by board and slot; pass the same Map to calls on the same starting board.
-function slotsOrder(b,slots,cur,hold,queue,lands=new Map()){
+// With `any` it stops at the first order that works (returns 0 or -1), for when only feasibility matters.
+function slotsOrder(b,slots,cur,hold,queue,lands=new Map(),any=false){
   const memo=new Map();
   const land=(b,t,key)=>{
     const k=b.map(r=>r.map(v=>v?1:0).join('')).join('')+t+key;
@@ -483,7 +522,7 @@ function slotsOrder(b,slots,cur,hold,queue,lands=new Map()){
     const tries=[[cur,hold,qi]];
     if(hold!==cur)tries.push(hold?[hold,cur,qi]:[queue[qi],cur,qi+1]);
     for(const [p,h,n] of tries){
-      if(!p||p==='*')continue;
+      if(!p||p==='*'||any&&best>=0)continue;
       for(const s of left){
         if(s.t!==p)continue;
         const spin=land(b,p,s.key);if(spin<0)continue;
@@ -491,6 +530,7 @@ function slotsOrder(b,slots,cur,hold,queue,lands=new Map()){
         const rest=go(board,left.filter(o=>o!==s).map(o=>shiftSlot(o,removed)),queue[n],h,n+1);
         if(rest<0)continue;
         best=Math.max(best,rest,p==='T'&&spin>0&&removed.length?removed.length*3+spin:0);
+        if(any)break;
       }
     }
     memo.set(key,best);return best;
@@ -501,7 +541,7 @@ function slotsOrder(b,slots,cur,hold,queue,lands=new Map()){
 // ---------- storage ----------
 const load=(k,d)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}};
 const save=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}};
-const cfg=Object.assign({das:150,arr:33,sdf:20,sound:true,mirror:'off',dpcHold:'IOSZ',dpcGuide:true,dpcJudge:true},load('tetris.settings',{}));
+const cfg=Object.assign({das:150,arr:33,sdf:20,sound:true,mirror:'off',dpcHold:'IOSZ',dpcGuide:true,dpcJudge:true,loop:true},load('tetris.settings',{}));
 const best=Object.assign({marathon:0,sprint:0},load('tetris.best',{}));
 
 // ---------- state ----------
@@ -513,13 +553,13 @@ function newGame(){
   return {
     board:Array.from({length:TOT},()=>Array(COLS).fill(0)),
     queue:[],cur:null,hold:null,holdUsed:false,
-    score:0,lines:0,level:1,combo:-1,b2b:false,pieces:0,elapsed:0,
+    score:0,lines:0,level:1,combo:-1,b2b:false,pieces:0,elapsed:0,drawn:0,
     grav:0,lockT:0,lockResets:0,lowestY:0,lastRotate:false,lastKick:0
   };
 }
 function reset(){G=newGame();flashes=[];feed.textContent='';}
 function bag7(){const b=PIECES.slice();for(let i=b.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[b[i],b[j]]=[b[j],b[i]];}return b;}
-function takeNext(){while(G.queue.length<8)G.queue.push(...M.nextBag(G));return G.queue.shift();}
+function takeNext(){while(G.queue.length<8)G.queue.push(...M.nextBag(G));G.drawn++;return G.queue.shift();}
 
 function fitsOn(b,t,r,x,y){
   const m=ROT[t][r];
@@ -752,7 +792,8 @@ const MODES={
     recordBest(G,won){if(won&&(!best.sprint||G.elapsed<best.sprint)){best.sprint=G.elapsed;return true;}return false;},
     result:(G,won)=>[['기록',won?fmt(G.elapsed):'—',true],['지운 줄',G.lines+' / 40'],['블록 수',G.pieces],['PPS',pps(G)],['최고 기록',best.sprint?fmt(best.sprint):'—']]
   },
-  dpc:dpcDrill()
+  dpc:guidedDrill({key:'dpc',name:'DPC 연습',first:'dpc',desc:'8줄 PC 직후 · 홀드 1개 + 2가방, 15블록으로 퍼펙트 클리어'}),
+  ms2:guidedDrill({key:'ms2',name:'산악쌓기 2호',first:'ms2',loop:true,desc:'1가방 확정 · T-스핀 트리플 → 3가방 PC → DPC 루프'})
 };
 // Perfect-clear drill. Starts from `board` (fumen; empty when omitted) with a random piece already in hold,
 // as if left over from the previous PC, followed by `bags` fresh bags. Success is a perfect clear within
@@ -798,97 +839,220 @@ function pcDrill(o){
     result:G=>[['원인',G.fail||'블록이 천장에 닿았습니다','note'],['놓은 블록',G.pieces+' / '+o.pieces],['성공',session.ok+' / '+session.tries],['최고 연속',(best[o.key]||0)+'회']]
   };
 }
-// DPC drill: a pcDrill whose hold comes from the chosen pool, plus guidance through both stages.
-// G.dpc.stage is 'build' (the setup and its T-spin), 'pc' (clearing what is left) or 'off' (left every option).
-// G.dpc.cands holds the options the board still matches and can still finish, best first; the first is the
-// target shown (cfg.dpcGuide), and with cfg.dpcJudge running out of options is a miss.
-// Build options are setups (DPC_VARIANTS); PC options are T-spin solutions (not counting a T-spin mini single,
-// as the wiki doesn't), then the setup's minimal set, then any other solution, all using just the bag after the build (the next bag stays for the loop).
+// ---------- background work ----------
+// Solver jobs that would stall a frame run a few milliseconds per frame instead (runJobs, from the game loop).
+// A job is {key, it: generator, done(result)}; finishJob runs one to the end at once when its result is needed now.
+const jobs=[];
+function runJobs(budget){
+  const end=Date.now()+budget;
+  while(jobs.length&&Date.now()<end){const j=jobs[0],r=j.it.next();if(r.done){jobs.shift();if(j.done)j.done(r.value);}}
+}
+function finishJob(key){
+  const i=jobs.findIndex(j=>j.key===key);if(i<0)return;
+  const j=jobs.splice(i,1)[0];let r;while(!(r=j.it.next()).done);if(j.done)j.done(r.value);
+}
+// PC tilings of what a setup's T-spin leaves, keyed by those rows and the pieces on hand (see guidedDrill.startPC)
+const tilingCache=new Map();
+const tilingKey=(b,lines,pieces)=>b.slice(TOT-lines).map(r=>r.map(x=>x?1:0).join('')).join('')+[...pieces].sort().join('');
+function tilingsFor(b,lines,pieces){
+  const k=tilingKey(b,lines,pieces);
+  finishJob(k);
+  if(!tilingCache.has(k))tilingCache.set(k,pcTilings(b,lines,pieces));
+  return tilingCache.get(k);
+}
+// queue the tilings for each setup's leftover rows, so none has to be worked out on the spot
+function prewarm(opts){
+  for(const opt of opts){
+    if(opt.next!=='pc')continue;
+    const bd=Array.from({length:TOT},()=>Array(COLS).fill(0));
+    const under=MS2_B2.some(l=>l.includes(opt))?MS2_B1[opt.mirrored?1:0].slots:[];
+    for(const sl of [...under,...opt.slots])for(const [r,c] of sl.cells)bd[r][c]=sl.t;
+    const own=placeOn(bd,[],0),after=placeOn(own.board,opt.tsd.cells,'T');
+    const lines=(MS2_B2.some(l=>l.includes(opt))?SEGS.ms2:SEGS.dpc).lines-own.removed.length-after.removed.length;
+    // the pieces on hand: a full bag, plus any piece of the setup's bag it didn't use (kept in hold)
+    const bag=[...PIECES];
+    for(const t of [...opt.slots.map(x=>x.t),'T']){const i=bag.indexOf(t);if(i>=0)bag.splice(i,1);}
+    const pieces=[...PIECES,...bag],k=tilingKey(after.board,lines,pieces);
+    if(tilingCache.has(k)||jobs.some(j=>j.key===k))continue;
+    jobs.push({key:k,it:pcTilingsSteps(after.board,lines,pieces),done:r=>tilingCache.set(k,r)});
+  }
+}
+
+// ---------- guided drills ----------
+// Every option a guided drill can steer toward, as slot lists (see prepSetup). next: 'pc' or the build stage that
+// follows. DPC options also carry the hold piece they start from.
+const GUIDE_OPTS=[];
+const addOpts=(list,extra)=>list.map(v=>{const o=Object.assign({},v,extra,{id:GUIDE_OPTS.length});GUIDE_OPTS.push(o);return o;});
+const DPC_OPTS=addOpts(DPC_VARIANTS,{next:'pc'});
+const MS2_B2=[false,true].map(m=>addOpts(MS2_SETUPS.map(s=>prepSetup(s,m)),{next:'pc'}));
+const MS2_B1=[false,true].map(m=>addOpts([prepSetup(MS2_BAG1,m)],{next:'b2'+(m?1:0)})[0]);
+const BUILD_NEXT={b20:MS2_B2[0],b21:MS2_B2[1]};
 // slotsOrder's T-spin value: lines * 3 + (2 full | 1 mini)
 const SPIN_NAME={4:'T-스핀 미니 싱글',5:'T-스핀 싱글',7:'T-스핀 미니 더블',8:'T-스핀 더블',10:'T-스핀 미니 트리플',11:'T-스핀 트리플'};
-function dpcDrill(){
-  const tilingCache=new Map(); // what a T-spin leaves is fixed per setup, so its tilings are too
-  const base=pcDrill({key:'dpc',name:'DPC 연습',desc:'SDPC 직후 · 홀드 1개 + 4·5가방, 15블록으로 퍼펙트 클리어',bags:2,pieces:15,
-    holdPool:()=>{const p=PIECES.filter(t=>cfg.dpcHold.includes(t));return p.length?p:['I','O','S','Z'];}});
-  // the next pieces of the PC bag as the solver sees them: later bags become '*' (hold only)
-  const bagView=G=>{
-    const k=G.dpc.stage==='pc'?6-G.dpc.pcLocks:G.queue.length;
-    const q=G.queue.map((t,i)=>i<k?t:'*');
-    return {cur:q[0],rest:q.slice(1,Math.max(1,k)).concat('*')};
+// One perfect clear after another: a segment is Mountainous Stacking 2 (3 bags, 8 lines, 20 pieces, one piece
+// left in hold) or a DPC (that piece and 2 bags, 6 lines, 15 pieces). Within a segment the drill walks build
+// stages, each a set of GUIDE_OPTS, then the PC stage, whose options come from the solver when it starts:
+// T-spin solutions (not a T-spin mini single, as the wiki doesn't count it), the setup's minimal set, then any
+// other solution; within each, ones that leave a hold-pool piece for the DPC come first.
+// G.guide = {seg, stage:'build'|'pc'|'off', cands:[{o, left, tsd, label}], limit, p0, l0, done, save}
+//   cands: options the board still matches and can still finish, best first; the first is the target shown.
+//   limit: the draw index the next bag starts at; later pieces may only be held ('*' for the solver).
+//   p0/l0: pieces placed and lines cleared when the segment began.
+const SEGS={ms2:{name:'산악쌓기 2호',pieces:20,lines:8},dpc:{name:'DPC',pieces:15,lines:6}};
+function guidedDrill(o){
+  const pool=()=>{const p=PIECES.filter(t=>cfg.dpcHold.includes(t));return p.length?p:['I','O','S','Z'];};
+  const chain=()=>o.loop&&cfg.loop;
+  const view=G=>{
+    const lim=G.guide.limit-G.drawn,q=G.queue.map((t,i)=>i<lim?t:'*');
+    return {cur:q[0],rest:[...q.slice(1),'*']};
   };
   const viable=G=>{
-    const d=G.dpc;
-    if(d.stage==='build')d.cands=d.cands.filter(c=>setupFeasible(G.board,c.left,c.tsd,G.queue[0],G.hold,G.queue.slice(1)));
-    else{const v=bagView(G),lands=new Map();d.cands=d.cands.filter(c=>slotsOrder(G.board,c.left,v.cur,G.hold,v.rest,lands)>=0);}
+    const g=G.guide,v=view(G);
+    if(g.stage==='build')g.cands=g.cands.filter(c=>setupFeasible(G.board,c.left,c.tsd,v.cur,G.hold,v.rest));
+    else{const lands=new Map();g.cands=g.cands.filter(c=>slotsOrder(G.board,c.left,v.cur,G.hold,v.rest,lands,true)>=0);}
   };
-  const startPC=(G,variant)=>{
-    const d=G.dpc;d.stage='pc';d.pcLocks=0;
-    const v=bagView(G),lines=G.need-G.lines,lands=new Map();
-    const pieces=[G.hold,v.cur,...v.rest].filter(t=>t&&t!=='*');
-    const keyOfTiling=t=>t.map(s=>s.t+':'+s.key).sort().join(' ');
-    const minimal=new Map(variant.pcMin.map((t,i)=>[keyOfTiling(t),i]));
-    const spin=[],mins=[],rest=[];
-    const tk=G.board.slice(TOT-lines).map(r=>r.map(v=>v?1:0).join('')).join('')+[...pieces].sort().join('');
-    if(!tilingCache.has(tk))tilingCache.set(tk,pcTilings(G.board,lines,pieces));
-    for(const t of tilingCache.get(tk)){
-      const r=slotsOrder(G.board,t,v.cur,G.hold,v.rest,lands);
+  const bagEnd=G=>(Math.floor(G.drawn/7)+1)*7;
+  const enterBuild=(G,opts)=>{
+    const g=G.guide;
+    g.stage='build';g.limit=bagEnd(G);
+    g.cands=opts.map(p=>({o:p.id,left:p.slots,tsd:p.tsd}));
+    viable(G);
+    if(!g.cands.length)g.stage='off';
+  };
+  const startSeg=(G,seg)=>{
+    G.guide={seg,stage:'build',cands:[],p0:G.pieces,l0:G.lines,done:null};
+    enterBuild(G,seg==='dpc'?DPC_OPTS.filter(p=>p.hold===G.hold):MS2_B1);
+  };
+  // PC options are ranked from the position at the start of the PC stage (g.pend): the minimal set straight away,
+  // then every tiling in the background (T-spin solutions may then take the lead). A lock before that is done
+  // finishes it first, so tracking always works on the full list.
+  const keyOfTiling=t=>t.map(s=>s.t+':'+s.key).sort().join(' ');
+  let lands={pend:null,map:new Map()};
+  const landsFor=p=>{if(lands.pend!==p.tk+p.cur+p.hold)lands={pend:p.tk+p.cur+p.hold,map:new Map()};return lands.map;};
+  const rankPC=(p,list)=>{
+    const opt=GUIDE_OPTS[p.opt],minimal=new Map(opt.pcMin.map((t,i)=>[keyOfTiling(t),i])),groups=[[],[],[]];
+    for(const [t,r] of list){
       if(r<0)continue;
-      const mi=minimal.get(keyOfTiling(t));
-      if(r>=5)spin.push({left:t,label:SPIN_NAME[r],rank:r});
-      else if(mi!==undefined)mins.push({left:t,label:'최소해법 '+'ABCDEFGHIJ'[mi]+' ('+variant.pcMin.length+'개 중)',rank:mi});
-      else rest.push({left:t,label:'기타 해법'});
+      const left=[...p.pieces];for(const s of t)left.splice(left.indexOf(s.t),1);
+      const save=left[0]||null,good=!save||pool().includes(save)?0:1,mi=minimal.get(keyOfTiling(t));
+      if(r>=5)groups[0].push({left:t,label:SPIN_NAME[r],save,rank:[-r,good]});
+      else if(mi!==undefined)groups[1].push({left:t,label:'최소해법 '+'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[mi]+' ('+opt.pcMin.length+'개 중)',save,rank:[good,mi]});
+      else groups[2].push({left:t,label:'기타 해법',save,rank:[good,0]});
     }
-    spin.sort((a,b)=>b.rank-a.rank);mins.sort((a,b)=>a.rank-b.rank);
-    d.cands=[...spin,...mins,...rest];
-    if(!d.cands.length)d.stage='off';
+    const cmp=(a,b)=>a.rank[0]-b.rank[0]||a.rank[1]-b.rank[1];
+    return groups.flatMap(x=>x.sort(cmp)).map(({rank,...c})=>c);
   };
-  const plan=G=>G.dpc&&G.dpc.stage!=='off'?G.dpc.cands[0]:null;
-  const syncMirror=G=>{const p=plan(G);if(G.dpc.stage==='build')G.mirror=!!(p&&DPC_VARIANTS[p.v].mirrored);};
-  return Object.assign({},base,{
-    setup(G){
-      base.setup(G);
-      G.dpc={stage:'build',cands:DPC_VARIANTS.map((v,i)=>({v:i,left:v.slots,tsd:v.tsd})).filter(c=>DPC_VARIANTS[c.v].hold===G.hold)};
-      viable(G);
-      if(!G.dpc.cands.length)G.dpc.stage='off';
-      syncMirror(G);
-    },
-    afterLock(G,placed){
-      const d=G.dpc;
-      if(d.stage==='build'||d.stage==='pc'){
-        const kept=[];let tsdDone=null;
-        for(const c of d.cands){
-          if(c.left.length){
-            const s=c.left.find(s=>s.t===placed.type&&s.key===placed.key);
-            if(!s)continue;
-            c.left=c.left.filter(o=>o!==s).map(o=>shiftSlot(o,placed.removed));
-          }else if(d.stage==='build'&&placed.type==='T'&&c.tsd.key===placed.key){tsdDone=c;break;}
-          else continue;
-          kept.push(c);
-        }
-        if(tsdDone){d.done=DPC_VARIANTS[tsdDone.v].name;startPC(G,DPC_VARIANTS[tsdDone.v]);}
-        else{
-          if(d.stage==='pc')d.pcLocks++;
-          const matched=kept.length>0;
-          d.cands=kept;
-          if(!G.board.every(r=>r.every(v=>!v)))viable(G);
-          if(!d.cands.length&&!G.board.every(r=>r.every(v=>!v))){
-            const pc=d.stage==='pc';d.stage='off';
-            if(cfg.dpcJudge){
-              G.fail=!matched?'목표 위치가 아닙니다':pc?'이 블록 순서로는 더 이상 퍼펙트 클리어를 할 수 없습니다':'이 블록 순서로는 더 이상 셋업을 완성할 수 없습니다';
-              return 'lose';
-            }
-          }
-        }
-        syncMirror(G);
+  const finishPC=G=>{
+    const g=G.guide,p=g.pend;if(!p)return;
+    const all=tilingsFor(p.board,p.lines,p.pieces),m=landsFor(p);
+    for(;p.i<all.length;p.i++)p.res.push(slotsOrder(p.board,all[p.i],p.cur,p.hold,p.rest,m));
+    g.cands=rankPC(p,all.map((t,i)=>[t,p.res[i]]));
+    delete g.pend;
+    if(!g.cands.length)g.stage='off';
+  };
+  function* analysePC(){
+    for(;;){
+      const g=G&&G.guide,p=g&&g.pend;
+      if(!p)return;
+      const k=tilingKey(p.board,p.lines,p.pieces);
+      if(!tilingCache.has(k)){yield;continue;}    // still being tiled by its own job
+      const all=tilingCache.get(k);
+      if(p.i>=all.length){finishPC(G);return;}
+      p.res.push(slotsOrder(p.board,all[p.i],p.cur,p.hold,p.rest,landsFor(p)));p.i++;
+      yield;
+    }
+  }
+  const startPC=(G,opt)=>{
+    const g=G.guide;
+    g.stage='pc';g.limit=bagEnd(G);
+    const v=view(G),lines=SEGS[g.seg].lines-(G.lines-g.l0);
+    const pieces=[G.hold,v.cur,...v.rest].filter(t=>t&&t!=='*');
+    const p=g.pend={tk:tilingKey(G.board,lines,pieces),board:G.board.map(r=>r.slice()),lines,pieces,cur:v.cur,hold:G.hold,rest:v.rest,opt:opt.id,i:0,res:[]};
+    g.cands=rankPC(p,opt.pcMin.map(t=>[t,slotsOrder(p.board,t,p.cur,p.hold,p.rest,landsFor(p))]));
+    if(!tilingCache.has(p.tk)&&!jobs.some(j=>j.key===p.tk))jobs.push({key:p.tk,it:pcTilingsSteps(p.board,lines,pieces),done:r=>tilingCache.set(p.tk,r)});
+    jobs.push({key:'analyse',it:analysePC()});
+    if(!g.cands.length)finishPC(G);
+  };
+  const plan=G=>G.guide&&G.guide.stage!=='off'?G.guide.cands[0]:null;
+  const syncMirror=G=>{const p=plan(G);if(G.guide.stage==='build')G.mirror=!!(p&&GUIDE_OPTS[p.o].mirrored);};
+  const fail=(G,why)=>{G.fail=why;return 'lose';};
+  // track one lock: keep the options it matches, move to the next stage when one is finished
+  const track=(G,placed)=>{
+    const g=G.guide;
+    if(g.stage!=='build'&&g.stage!=='pc')return null;
+    if(g.pend)finishPC(G);
+    const kept=[];let finished=null;
+    for(const c of g.cands){
+      if(c.left.length&&c.tsd&&c.tsd.early&&placed.type==='T'&&c.tsd.key===placed.key&&placed.removed.length===c.tsd.lines){
+        c.tsd=null;c.left=c.left.map(x=>shiftSlot(x,placed.removed));
+      }else if(c.left.length){
+        const s=c.left.find(s=>s.t===placed.type&&s.key===placed.key);
+        if(!s)continue;
+        c.left=c.left.filter(x=>x!==s).map(x=>shiftSlot(x,placed.removed));
+        if(!c.left.length&&!c.tsd&&g.stage==='build'){finished=c;break;}
+      }else if(g.stage==='build'&&placed.type==='T'&&c.tsd.key===placed.key){finished=c;break;}
+      else continue;
+      kept.push(c);
+    }
+    if(finished){
+      const opt=GUIDE_OPTS[finished.o];
+      g.done=opt.name;
+      if(opt.next==='pc')startPC(G,opt);else enterBuild(G,BUILD_NEXT[opt.next]);
+    }else{
+      const matched=kept.length>0,empty=G.board.every(r=>r.every(v=>!v));
+      g.cands=kept;
+      if(!empty)viable(G);
+      if(!g.cands.length&&!empty){
+        const pc=g.stage==='pc';g.stage='off';
+        if(cfg.dpcJudge)return fail(G,!matched?'목표 위치가 아닙니다':pc?'이 블록 순서로는 더 이상 퍼펙트 클리어를 할 수 없습니다':'이 블록 순서로는 더 이상 셋업을 완성할 수 없습니다');
       }
-      return base.afterLock(G,placed);
+    }
+    syncMirror(G);
+    return null;
+  };
+  return {
+    name:o.name,practice:true,desc:()=>o.desc+' · 최고 연속 '+(best[o.key]||0)+'회',
+    setup(G){
+      prewarm(o.first==='dpc'?DPC_OPTS:[...MS2_B2.flat(),...(o.loop?DPC_OPTS:[])]);
+      G.hold=o.first==='dpc'?pool()[Math.random()*pool().length|0]:null;
+      for(let i=0;i<(o.first==='dpc'?2:3);i++)G.queue.push(...bag7());
+      startSeg(G,o.first);syncMirror(G);
     },
+    nextBag:bag7,
+    gravity:()=>0,
+    afterLock(G,placed){
+      const miss=track(G,placed);
+      if(miss)return miss;
+      const g=G.guide,seg=SEGS[g.seg];
+      if(G.board.every(r=>r.every(v=>!v))){
+        if(!roundCounted){session.tries++;session.ok++;session.streak++;if(session.streak>(best[o.key]||0)){best[o.key]=session.streak;save('tetris.best',best);}}
+        if(!chain())return 'next';
+        // carry on: the next segment starts from this board, hold and queue
+        roundCounted=false;hist=[];
+        startSeg(G,g.seg==='ms2'?'dpc':'ms2');syncMirror(G);
+        return null;
+      }
+      const left=seg.lines-(G.lines-g.l0);
+      if(G.pieces-g.p0>=seg.pieces)return fail(G,seg.pieces+'블록 안에 퍼펙트 클리어를 못 했습니다');
+      if(G.board.filter(r=>r.some(Boolean)).length>left)return fail(G,'남은 '+left+'줄로는 정리할 수 없는 모양입니다');
+      return null;
+    },
+    stats:[['성공',()=>session.ok+' / '+session.tries,true],['연속',()=>session.streak],
+      ['블록',G=>G.guide?(G.pieces-G.guide.p0)+' / '+SEGS[G.guide.seg].pieces:'0'],
+      ['남은 줄',G=>G.guide?SEGS[G.guide.seg].lines-(G.lines-G.guide.l0):'0']],
+    recordBest(){
+      if(!roundCounted){roundCounted=true;session.tries++;session.streak=0;}
+      return false;
+    },
+    title:()=>'MISS',
+    result:G=>[['원인',G.fail||'블록이 천장에 닿았습니다','note'],['구간',G.guide?SEGS[G.guide.seg].name:''],['놓은 블록',G.guide?(G.pieces-G.guide.p0)+' / '+SEGS[G.guide.seg].pieces:''],['성공',session.ok+' / '+session.tries],['최고 연속',(best[o.key]||0)+'회']],
     tag(G){
-      const d=G.dpc,p=plan(G);
-      if(!d)return this.name;
-      if(d.stage==='build')return this.name+' · '+(p?DPC_VARIANTS[p.v].name:'셋업 없음');
-      if(d.stage==='pc')return this.name+' · PC · '+(p?p.label:'');
-      return this.name+' · '+(d.done?'해법 없음':'셋업 없음');
+      const g=G.guide,p=plan(G);
+      if(!g)return this.name;
+      const seg=chain()||g.seg!==o.first?SEGS[g.seg].name:this.name;
+      if(g.stage==='build')return seg+' · '+(p?GUIDE_OPTS[p.o].name:'셋업 없음');
+      if(g.stage==='pc')return seg+' · PC · '+(p?p.label+(p.save?' · '+p.save+' 남김':''):'');
+      return seg+' · '+(g.done?'해법 없음':'셋업 없음');
     },
     // slots still to fill (or the T-spin slot once the build is done); `now` marks ones the current piece fits
     targets(G){
@@ -897,7 +1061,7 @@ function dpcDrill(){
       if(!p.left.length)return p.tsd?[{t:'T',cells:p.tsd.cells,now:true}]:[];
       return p.left.map(s=>({t:s.t,cells:s.cells,now:s.t===cur||s.t===G.hold&&!G.holdUsed}));
     }
-  });
+  };
 }
 if(!MODES[mode])mode='marathon';
 M=MODES[mode];
@@ -1106,6 +1270,7 @@ function update(dt){
 let last=performance.now();
 function frame(now){
   const dt=Math.min(50,now-last);last=now;
+  runJobs(5);
   if(state==='play')update(dt);
   else if(state==='ready'){
     readyT-=dt;if(dasDir){dasT+=dt;}
@@ -1129,7 +1294,7 @@ const mir=$('#mir');mir.value=cfg.mirror;mir.addEventListener('change',()=>{cfg.
 const dpcHold=$('#dpcHold');
 dpcHold.innerHTML=['O','S','Z','I','J','L','T'].map(t=>'<label style="color:'+COLORS[t]+'"><input type="checkbox" value="'+t+'"'+(cfg.dpcHold.includes(t)?' checked':'')+'> '+t+'</label>').join('');
 dpcHold.addEventListener('change',()=>{cfg.dpcHold=[...dpcHold.querySelectorAll('input:checked')].map(i=>i.value).join('');save('tetris.settings',cfg);});
-for(const [id,key] of [['dpcGuide','dpcGuide'],['dpcJudge','dpcJudge']]){
+for(const [id,key] of [['dpcGuide','dpcGuide'],['dpcJudge','dpcJudge'],['loop','loop']]){
   const el=$('#'+id);el.checked=cfg[key];el.addEventListener('change',()=>{cfg[key]=el.checked;save('tetris.settings',cfg);});
 }
 
