@@ -39,6 +39,7 @@ body{
 .mark i:nth-child(2){grid-column:1;grid-row:2}.mark i:nth-child(3){grid-column:2;grid-row:2}.mark i:nth-child(4){grid-column:3;grid-row:2}
 h1{margin:0;font-size:20px;font-weight:700;letter-spacing:.02em}
 .modetag{font-size:12px;color:var(--muted);letter-spacing:.08em}
+.modetag.mirrored{color:var(--accent)}
 .top button{font:500 13px var(--body);color:var(--fg);background:transparent;border:1px solid var(--edge);border-radius:4px;padding:6px 12px;cursor:pointer}
 .top button:hover{border-color:var(--muted)}
 .tools{display:flex;gap:8px}
@@ -60,7 +61,7 @@ canvas{display:block}
 .pop{font-family:var(--display);font-size:clamp(13px,4.2vw,20px);letter-spacing:.04em;text-shadow:0 2px 0 rgba(0,0,0,.6);animation:pop 1.4s ease-out forwards;white-space:nowrap}
 .pop.gold{color:var(--accent)}.pop.violet{color:#d39bff}.pop.cyan{color:#7fe6f2}.pop.dim{color:var(--muted);font-size:clamp(11px,3.4vw,15px)}
 @keyframes pop{0%{transform:scale(1.25);opacity:0}10%{transform:scale(1);opacity:1}75%{opacity:1}100%{opacity:0;transform:translateY(-10px)}}
-.callout{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:clamp(24px,8vw,40px);color:var(--accent);text-shadow:0 3px 0 rgba(0,0,0,.6);pointer-events:none}
+.callout{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;white-space:pre-line;text-align:center;line-height:1.2;font-family:var(--display);font-size:clamp(24px,8vw,40px);color:var(--accent);text-shadow:0 3px 0 rgba(0,0,0,.6);pointer-events:none}
 
 .overlay{position:absolute;inset:-6px;display:flex;align-items:center;justify-content:center;background:rgba(18,16,30,.78);backdrop-filter:blur(3px);z-index:5;padding:8px}
 .card{background:var(--panel);border:1px solid var(--edge);border-radius:6px;padding:20px;width:min(320px,100%);display:flex;flex-direction:column;gap:10px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
@@ -99,6 +100,7 @@ kbd{font:500 12px var(--mono);color:var(--fg);background:var(--panel);border:1px
 .settings output{font:500 12px var(--mono);text-align:right;color:var(--accent)}
 .settings input[type=range]{width:100%;accent-color:var(--accent)}
 .settings .check{display:flex;gap:8px;align-items:center;margin-top:12px;font-size:13px}
+.settings select{font:500 13px var(--body);color:var(--fg);background:var(--well);border:1px solid var(--edge);border-radius:4px;padding:3px 6px}
 .settings p{margin:8px 0 0;font-size:12px;color:var(--muted);max-width:32ch}
 
 @media (max-width:719px){
@@ -159,7 +161,8 @@ kbd{font:500 12px var(--mono);color:var(--fg);background:var(--panel);border:1px
     <div class="row"><label for="arr">ARR</label><input id="arr" type="range" min="0" max="100" step="1"><output id="arrv"></output></div>
     <div class="row"><label for="sdf">SDF</label><input id="sdf" type="range" min="5" max="41" step="1"><output id="sdfv"></output></div>
     <label class="check"><input id="snd" type="checkbox"> 효과음</label>
-    <p>DAS는 좌우키를 누르고 자동 이동이 시작될 때까지의 시간, ARR은 자동 이동 간격, SDF는 소프트 드롭 배속입니다.</p>
+    <label class="check">좌우 반전 (연습) <select id="mir"><option value="off">끔</option><option value="on">켬</option><option value="random">판마다 무작위</option></select></label>
+    <p>DAS는 좌우키를 누르고 자동 이동이 시작될 때까지의 시간, ARR은 자동 이동 간격, SDF는 소프트 드롭 배속입니다. 좌우 반전은 연습 모드의 시작 보드와 정해진 hold 블록을 뒤집고(L↔J, S↔Z), 다음 판부터 적용됩니다.</p>
   </details>
 </div>
 
@@ -176,6 +179,10 @@ const SHAPES={
   Z:[[1,1,0],[0,1,1],[0,0,0]]
 };
 const PIECES=['I','J','L','O','S','T','Z'];
+// Left-right mirror: flips columns and swaps the chiral pieces.
+const MIRROR={L:'J',J:'L',S:'Z',Z:'S'};
+const mirrorPiece=t=>MIRROR[t]||t;
+const mirrorRows=rows=>rows.map(r=>r.map(mirrorPiece).reverse());
 const COLORS={I:'#3fd0e0',J:'#4d7cff',L:'#ff9a3c',O:'#ffd23f',S:'#5bd36a',T:'#b05cff',Z:'#ff4f64',G:'#8a849f'};
 const DEAD='#4a4560';
 const rotCW=m=>{const n=m.length,r=[];for(let y=0;y<n;y++){r.push([]);for(let x=0;x<n;x++)r[y][x]=m[n-1-x][y];}return r;};
@@ -273,7 +280,7 @@ const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 // ---------- storage ----------
 const load=(k,d)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}};
 const save=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}};
-const cfg=Object.assign({das:150,arr:33,sdf:20,sound:true},load('tetris.settings',{}));
+const cfg=Object.assign({das:150,arr:33,sdf:20,sound:true,mirror:'off'},load('tetris.settings',{}));
 const best=Object.assign({marathon:0,sprint:0},load('tetris.best',{}));
 
 // ---------- state ----------
@@ -517,14 +524,18 @@ const MODES={
 // as if left over from the previous PC, followed by `bags` fresh bags. Success is a perfect clear within
 // `pieces` placements; it then rolls straight into a new round. Each round counts once toward the success rate,
 // so undoing or retrying after a miss doesn't change the stats.
+// With the mirror setting on (or on a coin flip with 'random') the board and a fixed hold piece are flipped;
+// G.mirror records it so later per-round data (targets) can be flipped the same way.
 function pcDrill(o){
   const fail=(G,why)=>{G.fail=why;return 'lose';};
   return {
     name:o.name,practice:true,
     desc:()=>o.desc+' · 최고 연속 '+(best[o.key]||0)+'회',
     setup(G){
+      G.mirror=cfg.mirror==='on'||(cfg.mirror==='random'&&Math.random()<.5);
       if(o.board)G.board=decodeFumen(o.board)[0].field;
-      G.hold=o.hold||PIECES[Math.random()*7|0];
+      if(G.mirror)G.board=mirrorRows(G.board);
+      G.hold=o.hold?(G.mirror?mirrorPiece(o.hold):o.hold):PIECES[Math.random()*7|0];
       for(let i=0;i<o.bags;i++)G.queue.push(...bag7());
       G.need=(G.board.flat().filter(Boolean).length+4*o.pieces)/10;
     },
@@ -563,6 +574,7 @@ function turnStart(){if(M.practice)hist.push(structuredClone(G));}
 function newRound(){
   clearTimeout(endTimer);
   G=newGame();if(M.setup)M.setup(G);
+  $('#modetag').textContent=M.name+(G.mirror?' · 좌우 반전':'');$('#modetag').classList.toggle('mirrored',!!G.mirror);
   hist=[];roundCounted=false;
   state='ready';readyT=M.practice?700:1100;
   ov.hidden=true;
@@ -588,7 +600,6 @@ function start(m){
   feed.textContent='';flashes=[];
   newRound();
   if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();
-  $('#modetag').textContent=M.name;
   $('#pauseBtn').hidden=false;$('#undoBtn').hidden=!M.practice;
   buildStats();
 }
@@ -627,7 +638,7 @@ function endGame(won){
 function showMenu(){
   clearTimeout(endTimer);
   state='menu';reset();hist=[];
-  $('#modetag').textContent='';$('#pauseBtn').hidden=true;$('#undoBtn').hidden=true;
+  $('#modetag').textContent='';$('#modetag').classList.remove('mirrored');$('#pauseBtn').hidden=true;$('#undoBtn').hidden=true;
   card.innerHTML='<p class="eyebrow">모드 선택</p>'+
     Object.keys(MODES).map(k=>'<button class="mode" data-mode="'+k+'" type="button"><span class="mname">'+MODES[k].name+'</span><span class="mdesc">'+MODES[k].desc()+'</span></button>').join('')+
     '<p class="hint">Enter를 누르면 '+M.name+' 바로 시작 · SRS 회전, 7-bag, 홀드 지원</p>';
@@ -726,7 +737,7 @@ function render(now){
   nctx.clearRect(0,0,nextC.width,nextC.height);
   if(state!=='menu')for(let i=0;i<5&&i<G.queue.length;i++)drawMini(nctx,G.queue[i],(PS*4+16)/2,PS*1.5+i*PS*3,i===0?PS:PS*.85,dead);
 
-  callout.textContent=state==='ready'?(readyT>400?'READY':'GO'):'';
+  callout.textContent=state==='ready'?(readyT>400?'READY':'GO')+(G.mirror?'\nMIRROR':''):'';
   updateStats();
 }
 
@@ -767,6 +778,7 @@ bindRange('das','das',v=>v+'ms');
 bindRange('arr','arr',v=>v===0?'즉시':v+'ms');
 bindRange('sdf','sdf',v=>v>40?'∞':v+'x');
 const snd=$('#snd');snd.checked=cfg.sound;snd.addEventListener('change',()=>{cfg.sound=snd.checked;save('tetris.settings',cfg);});
+const mir=$('#mir');mir.value=cfg.mirror;mir.addEventListener('change',()=>{cfg.mirror=mir.value;save('tetris.settings',cfg);});
 
 layout();reset();showMenu();requestAnimationFrame(frame);
 })();
