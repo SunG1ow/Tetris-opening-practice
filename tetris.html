@@ -172,6 +172,7 @@ kbd{font:500 12px var(--mono);color:var(--fg);background:var(--panel);border:1px
     <p class="sub">남길 블록 (DPC hold 후보)</p>
     <div class="pieces" id="dpcHold"></div>
     <label class="check"><input id="dpcGuide" type="checkbox"> 목표 위치 표시</label>
+    <div class="row"><label for="ga">진하기</label><input id="ga" type="range" min="10" max="100" step="5"><output id="gav"></output></div>
     <label class="check"><input id="dpcJudge" type="checkbox"> 배치 판정 (목표와 다르면 실패)</label>
     <label class="check"><input id="loop" type="checkbox"> 산악쌓기 2호: PC 후 DPC로 이어서 무한 루프</label>
     <p>셋업은 Hard Drop 위키(DPC Setups, Mountainous Stacking) 기준입니다. 블록 순서와 hold를 보고 완성할 수 있는 셋업과 PC 해법을(반전 포함) 자동으로 고릅니다. DPC를 시작할 때 hold에 둘 블록은 위 후보 중에서 고르고, 산악쌓기 2호의 PC에서는 후보 블록을 남기는 해법을 먼저 보여 줍니다. 위키는 O, S/Z, I를 남기길 권하고 J/L, T는 피하라고 합니다. hold 후보는 다음 판부터, 나머지는 바로 적용됩니다.</p>
@@ -541,7 +542,7 @@ function slotsOrder(b,slots,cur,hold,queue,lands=new Map(),any=false){
 // ---------- storage ----------
 const load=(k,d)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}};
 const save=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}};
-const cfg=Object.assign({das:150,arr:33,sdf:20,sound:true,mirror:'off',dpcHold:'IOSZ',dpcGuide:true,dpcJudge:true,loop:true},load('tetris.settings',{}));
+const cfg=Object.assign({das:150,arr:33,sdf:20,sound:true,mirror:'off',dpcHold:'IOSZ',dpcGuide:true,dpcJudge:true,loop:true,guideAlpha:40},load('tetris.settings',{}));
 const best=Object.assign({marathon:0,sprint:0},load('tetris.best',{}));
 
 // ---------- state ----------
@@ -1214,12 +1215,22 @@ function render(now){
     if(r<HID+4)danger=true;
     cell(wctx,c*CS,(r-HID)*CS,CS,dead?DEAD:COLORS[v]);
   }
-  if(M.targets&&state!=='menu'&&!dead)for(const s of M.targets(G)){
-    wctx.strokeStyle=COLORS[s.t];wctx.fillStyle=COLORS[s.t];wctx.lineWidth=1.5;
-    for(const [r,c] of s.cells){
-      if(r<HID)continue;
-      wctx.globalAlpha=s.now?.28:.1;wctx.fillRect(c*CS+3,(r-HID)*CS+3,CS-6,CS-6);
-      wctx.globalAlpha=s.now?.9:.4;wctx.setLineDash([4,3]);wctx.strokeRect(c*CS+3.5,(r-HID)*CS+3.5,CS-7,CS-7);
+  if(M.targets&&state!=='menu'&&!dead){
+    // target outlines: dashed and faint (strength cfg.guideAlpha), left out where the ghost already sits
+    const ghost=new Set();
+    if(cur&&(state==='play'||state==='paused')){
+      let gy=cur.y;while(fits(cur.type,cur.rot,cur.x,gy+1))gy++;
+      const m=ROT[cur.type][cur.rot];
+      for(let i=0;i<m.length;i++)for(let j=0;j<m.length;j++)if(m[i][j])ghost.add((gy+i)*COLS+cur.x+j);
+    }
+    const f=cfg.guideAlpha/100;
+    for(const s of M.targets(G)){
+      wctx.strokeStyle=COLORS[s.t];wctx.fillStyle=COLORS[s.t];wctx.lineWidth=1;
+      for(const [r,c] of s.cells){
+        if(r<HID||ghost.has(r*COLS+c))continue;
+        wctx.globalAlpha=(s.now?.28:.1)*f;wctx.fillRect(c*CS+4,(r-HID)*CS+4,CS-8,CS-8);
+        wctx.globalAlpha=(s.now?.9:.4)*f;wctx.setLineDash([3,3]);wctx.strokeRect(c*CS+4.5,(r-HID)*CS+4.5,CS-9,CS-9);
+      }
     }
     wctx.setLineDash([]);wctx.globalAlpha=1;
   }
@@ -1289,6 +1300,7 @@ function bindRange(id,key,fmtv){
 bindRange('das','das',v=>v+'ms');
 bindRange('arr','arr',v=>v===0?'즉시':v+'ms');
 bindRange('sdf','sdf',v=>v>40?'∞':v+'x');
+bindRange('ga','guideAlpha',v=>v+'%');
 const snd=$('#snd');snd.checked=cfg.sound;snd.addEventListener('change',()=>{cfg.sound=snd.checked;save('tetris.settings',cfg);});
 const mir=$('#mir');mir.value=cfg.mirror;mir.addEventListener('change',()=>{cfg.mirror=mir.value;save('tetris.settings',cfg);});
 const dpcHold=$('#dpcHold');
