@@ -39,8 +39,10 @@ body{
 .mark i:nth-child(2){grid-column:1;grid-row:2}.mark i:nth-child(3){grid-column:2;grid-row:2}.mark i:nth-child(4){grid-column:3;grid-row:2}
 h1{margin:0;font-size:20px;font-weight:700;letter-spacing:.02em}
 .modetag{font-size:12px;color:var(--muted);letter-spacing:.08em}
+.modetag.mirrored{color:var(--accent)}
 .top button{font:500 13px var(--body);color:var(--fg);background:transparent;border:1px solid var(--edge);border-radius:4px;padding:6px 12px;cursor:pointer}
 .top button:hover{border-color:var(--muted)}
+.tools{display:flex;gap:8px}
 
 .stage{position:relative;display:grid;grid-template-columns:auto auto auto;grid-template-areas:"hold well next" "stats well next";grid-template-rows:auto 1fr;gap:14px;justify-content:center;align-items:start;max-width:760px;margin:0 auto}
 .panel{background:var(--panel);border:1px solid var(--edge);border-radius:4px;padding:8px}
@@ -59,7 +61,7 @@ canvas{display:block}
 .pop{font-family:var(--display);font-size:clamp(13px,4.2vw,20px);letter-spacing:.04em;text-shadow:0 2px 0 rgba(0,0,0,.6);animation:pop 1.4s ease-out forwards;white-space:nowrap}
 .pop.gold{color:var(--accent)}.pop.violet{color:#d39bff}.pop.cyan{color:#7fe6f2}.pop.dim{color:var(--muted);font-size:clamp(11px,3.4vw,15px)}
 @keyframes pop{0%{transform:scale(1.25);opacity:0}10%{transform:scale(1);opacity:1}75%{opacity:1}100%{opacity:0;transform:translateY(-10px)}}
-.callout{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:clamp(24px,8vw,40px);color:var(--accent);text-shadow:0 3px 0 rgba(0,0,0,.6);pointer-events:none}
+.callout{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;white-space:pre-line;text-align:center;line-height:1.2;font-family:var(--display);font-size:clamp(24px,8vw,40px);color:var(--accent);text-shadow:0 3px 0 rgba(0,0,0,.6);pointer-events:none}
 
 .overlay{position:absolute;inset:-6px;display:flex;align-items:center;justify-content:center;background:rgba(18,16,30,.78);backdrop-filter:blur(3px);z-index:5;padding:8px}
 .card{background:var(--panel);border:1px solid var(--edge);border-radius:6px;padding:20px;width:min(320px,100%);display:flex;flex-direction:column;gap:10px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
@@ -75,8 +77,9 @@ canvas{display:block}
 .btn:focus-visible,.top button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .btn kbd{font:500 11px var(--mono);opacity:.7;margin-left:6px}
 .result{display:grid;grid-template-columns:1fr auto;gap:6px 16px;margin:4px 0 6px}
-.result dt{color:var(--muted);font-size:13px}
-.result dd{margin:0;font:700 14px var(--mono);font-variant-numeric:tabular-nums;text-align:right}
+.result dt{color:var(--muted);font-size:13px;white-space:nowrap}
+.result dd{margin:0;font:700 14px var(--mono);font-variant-numeric:tabular-nums;text-align:right;overflow-wrap:anywhere}
+.result dd.note{font:500 13px var(--body);text-align:left}
 .result dd.hero{font:400 22px var(--display);color:var(--accent)}
 .newbest{align-self:flex-start;font:700 11px var(--body);letter-spacing:.12em;color:#1a1729;background:var(--accent);padding:3px 8px;border-radius:2px}
 .hint{margin:2px 0 0;font-size:12px;color:var(--muted)}
@@ -97,7 +100,11 @@ kbd{font:500 12px var(--mono);color:var(--fg);background:var(--panel);border:1px
 .settings output{font:500 12px var(--mono);text-align:right;color:var(--accent)}
 .settings input[type=range]{width:100%;accent-color:var(--accent)}
 .settings .check{display:flex;gap:8px;align-items:center;margin-top:12px;font-size:13px}
+.settings select{font:500 13px var(--body);color:var(--fg);background:var(--well);border:1px solid var(--edge);border-radius:4px;padding:3px 6px}
 .settings p{margin:8px 0 0;font-size:12px;color:var(--muted);max-width:32ch}
+.settings .sub{margin:12px 0 0;font-size:12px;font-weight:700;color:var(--fg)}
+.pieces{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:6px;font:700 13px var(--mono)}
+.pieces label{display:flex;gap:4px;align-items:center;cursor:pointer}
 
 @media (max-width:719px){
   .stage{grid-template-areas:"hold well next" "stats stats stats";gap:10px}
@@ -111,7 +118,7 @@ kbd{font:500 12px var(--mono);color:var(--fg);background:var(--panel);border:1px
 <body>
 <header class="top">
   <div class="brand"><div class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></div><h1>테트리스</h1><span class="modetag" id="modetag"></span></div>
-  <button id="pauseBtn" type="button">일시정지</button>
+  <div class="tools"><button id="undoBtn" type="button" hidden>되돌리기</button><button id="pauseBtn" type="button">일시정지</button></div>
 </header>
 
 <main class="stage" id="stage">
@@ -144,10 +151,12 @@ kbd{font:500 12px var(--mono);color:var(--fg);background:var(--panel);border:1px
     <span><kbd>Space</kbd></span><span>하드 드롭</span>
     <span><kbd>↑</kbd> <kbd>X</kbd></span><span>시계 방향 회전</span>
     <span><kbd>Z</kbd> <kbd>Ctrl</kbd></span><span>반시계 방향 회전</span>
-    <span><kbd>A</kbd></span><span>180° 회전</span>
+    <span><kbd>A</kbd></span><span>180° 회전 (TETR.IO SRS+ 킥)</span>
     <span><kbd>C</kbd> <kbd>Shift</kbd></span><span>홀드</span>
     <span><kbd>Esc</kbd> <kbd>P</kbd></span><span>일시정지</span>
-    <span><kbd>R</kbd></span><span>바로 재시작</span>
+    <span><kbd>R</kbd></span><span>바로 재시작 (연습: 같은 순서로)</span>
+    <span><kbd>⌫</kbd></span><span>한 수 되돌리기 (연습)</span>
+    <span><kbd>N</kbd></span><span>새 순서 (연습)</span>
   </div>
   <details class="settings">
     <summary>조작감 설정</summary>
@@ -155,7 +164,17 @@ kbd{font:500 12px var(--mono);color:var(--fg);background:var(--panel);border:1px
     <div class="row"><label for="arr">ARR</label><input id="arr" type="range" min="0" max="100" step="1"><output id="arrv"></output></div>
     <div class="row"><label for="sdf">SDF</label><input id="sdf" type="range" min="5" max="41" step="1"><output id="sdfv"></output></div>
     <label class="check"><input id="snd" type="checkbox"> 효과음</label>
-    <p>DAS는 좌우키를 누르고 자동 이동이 시작될 때까지의 시간, ARR은 자동 이동 간격, SDF는 소프트 드롭 배속입니다.</p>
+    <label class="check">좌우 반전 (연습) <select id="mir"><option value="off">끔</option><option value="on">켬</option><option value="random">판마다 무작위</option></select></label>
+    <p>DAS는 좌우키를 누르고 자동 이동이 시작될 때까지의 시간, ARR은 자동 이동 간격, SDF는 소프트 드롭 배속입니다. 좌우 반전은 연습 모드의 시작 보드와 정해진 hold 블록을 뒤집고(L↔J, S↔Z), 다음 판부터 적용됩니다. DPC는 셋업에 맞춰 자동으로 반전됩니다.</p>
+  </details>
+  <details class="settings">
+    <summary>연습 설정 (DPC · 산악쌓기 2호)</summary>
+    <p class="sub">남길 블록 (DPC hold 후보)</p>
+    <div class="pieces" id="dpcHold"></div>
+    <label class="check"><input id="dpcGuide" type="checkbox"> 목표 위치 표시</label>
+    <label class="check"><input id="dpcJudge" type="checkbox"> 배치 판정 (목표와 다르면 실패)</label>
+    <label class="check"><input id="loop" type="checkbox"> 산악쌓기 2호: PC 후 DPC로 이어서 무한 루프</label>
+    <p>셋업은 Hard Drop 위키(DPC Setups, Mountainous Stacking) 기준입니다. 블록 순서와 hold를 보고 완성할 수 있는 셋업과 PC 해법을(반전 포함) 자동으로 고릅니다. DPC를 시작할 때 hold에 둘 블록은 위 후보 중에서 고르고, 산악쌓기 2호의 PC에서는 후보 블록을 남기는 해법을 먼저 보여 줍니다. 위키는 O, S/Z, I를 남기길 권하고 J/L, T는 피하라고 합니다. hold 후보는 다음 판부터, 나머지는 바로 적용됩니다.</p>
   </details>
 </div>
 
@@ -171,139 +190,488 @@ const SHAPES={
   T:[[0,1,0],[1,1,1],[0,0,0]],
   Z:[[1,1,0],[0,1,1],[0,0,0]]
 };
-const COLORS={I:'#3fd0e0',J:'#4d7cff',L:'#ff9a3c',O:'#ffd23f',S:'#5bd36a',T:'#b05cff',Z:'#ff4f64'};
+const PIECES=['I','J','L','O','S','T','Z'];
+// Left-right mirror: flips columns and swaps the chiral pieces.
+const MIRROR={L:'J',J:'L',S:'Z',Z:'S'};
+const mirrorPiece=t=>MIRROR[t]||t;
+const mirrorRows=rows=>rows.map(r=>r.map(mirrorPiece).reverse());
+const COLORS={I:'#3fd0e0',J:'#4d7cff',L:'#ff9a3c',O:'#ffd23f',S:'#5bd36a',T:'#b05cff',Z:'#ff4f64',G:'#8a849f'};
 const DEAD='#4a4560';
 const rotCW=m=>{const n=m.length,r=[];for(let y=0;y<n;y++){r.push([]);for(let x=0;x<n;x++)r[y][x]=m[n-1-x][y];}return r;};
 const ROT={};
 for(const t in SHAPES){ROT[t]=[SHAPES[t]];for(let i=1;i<4;i++)ROT[t].push(rotCW(ROT[t][i-1]));}
-// SRS kick tables (y-up as published; converted on use)
+// Kick tables: TETR.IO's SRS+ (y-up as published; converted on use). The first test is always (0,0).
+// JLSTZ quarter turns are plain SRS; I quarter turns use SRS+'s symmetric table; 180s use TETR.IO's own tables.
 const K_JLSTZ={'0>1':[[0,0],[-1,0],[-1,1],[0,-2],[-1,-2]],'1>0':[[0,0],[1,0],[1,-1],[0,2],[1,2]],'1>2':[[0,0],[1,0],[1,-1],[0,2],[1,2]],'2>1':[[0,0],[-1,0],[-1,1],[0,-2],[-1,-2]],'2>3':[[0,0],[1,0],[1,1],[0,-2],[1,-2]],'3>2':[[0,0],[-1,0],[-1,-1],[0,2],[-1,2]],'3>0':[[0,0],[-1,0],[-1,-1],[0,2],[-1,2]],'0>3':[[0,0],[1,0],[1,1],[0,-2],[1,-2]]};
-const K_I={'0>1':[[0,0],[-2,0],[1,0],[-2,-1],[1,2]],'1>0':[[0,0],[2,0],[-1,0],[2,1],[-1,-2]],'1>2':[[0,0],[-1,0],[2,0],[-1,2],[2,-1]],'2>1':[[0,0],[1,0],[-2,0],[1,-2],[-2,1]],'2>3':[[0,0],[2,0],[-1,0],[2,1],[-1,-2]],'3>2':[[0,0],[-2,0],[1,0],[-2,-1],[1,2]],'3>0':[[0,0],[1,0],[-2,0],[1,-2],[-2,1]],'0>3':[[0,0],[-1,0],[2,0],[-1,2],[2,-1]]};
-const K_180=[[0,0],[0,1],[1,0],[-1,0],[0,-1]];
+const K_I={'0>1':[[0,0],[1,0],[-2,0],[-2,-1],[1,2]],'1>0':[[0,0],[-1,0],[2,0],[-1,-2],[2,1]],'1>2':[[0,0],[-1,0],[2,0],[-1,2],[2,-1]],'2>1':[[0,0],[-2,0],[1,0],[-2,1],[1,-2]],'2>3':[[0,0],[2,0],[-1,0],[2,1],[-1,-2]],'3>2':[[0,0],[1,0],[-2,0],[1,2],[-2,-1]],'3>0':[[0,0],[1,0],[-2,0],[1,-2],[-2,1]],'0>3':[[0,0],[-1,0],[2,0],[2,-1],[-1,2]]};
+const K_180={'0>2':[[0,0],[0,1],[1,1],[-1,1],[1,0],[-1,0]],'1>3':[[0,0],[1,0],[1,2],[1,1],[0,2],[0,1]],'2>0':[[0,0],[0,-1],[-1,-1],[1,-1],[-1,0],[1,0]],'3>1':[[0,0],[-1,0],[-1,2],[-1,1],[0,2],[0,1]]};
+const K_I180={'0>2':[[0,0],[0,1]],'1>3':[[0,0],[1,0]],'2>0':[[0,0],[0,-1]],'3>1':[[0,0],[-1,0]]};
+
+// ---------- fumen ----------
+// Decoder for v115 fumen, the diagram format setups are shared in (fumen.zui.jp, harddrop.com/fumen).
+// Each page gives its field as 23 rows top to bottom (same shape as the board): 0 empty, 'I'..'Z' a piece, 'G' garbage.
+// The page's own piece, if any, is in `piece` and drawn into `placed`.
+const FUMEN_TYPES=[0,'I','L','O','Z','T','J','S','G'];
+const FUMEN_ROT=[2,1,0,3]; // encoded rotation -> 0 spawn, 1 right, 2 reverse, 3 left
+const FUMEN_BLOCKS={I:[[0,0],[-1,0],[1,0],[2,0]],T:[[0,0],[-1,0],[1,0],[0,1]],O:[[0,0],[1,0],[0,1],[1,1]],L:[[0,0],[-1,0],[1,0],[1,1]],J:[[0,0],[-1,0],[1,0],[-1,1]],S:[[0,0],[-1,0],[0,1],[1,1]],Z:[[0,0],[1,0],[0,1],[-1,1]]};
+// position offsets the format applies to O, I, S and Z per rotation
+const FUMEN_SHIFT={O:[[0,-1],[0,0],[1,0],[1,-1]],I:[[0,0],[0,0],[1,0],[0,-1]],S:[[0,-1],[-1,0],[0,0],[0,0]],Z:[[0,-1],[0,0],[0,0],[1,0]]};
+function decodeFumen(str){
+  str=String(str);
+  const at=str.search(/[vmd]115@/);
+  if(at<0)throw new Error('v115 fumen이 아닙니다');
+  const amp=str.indexOf('&');
+  const data=(amp>=0?str.slice(0,amp):str).slice(at+5).replace(/[?\s]+/g,'');
+  const TABLE='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  const CHARS=' !"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~';
+  const vals=[...data].map(c=>{const v=TABLE.indexOf(c);if(v<0)throw new Error('잘못된 fumen 문자: '+c);return v;});
+  let pos=0;
+  const poll=n=>{let v=0;for(let i=0;i<n;i++){if(pos>=vals.length)throw new Error('fumen 데이터가 잘렸습니다');v+=vals[pos++]*Math.pow(64,i);}return v;};
+  // 23 field rows (top to bottom) of type numbers, plus one garbage row below
+  let rows=Array.from({length:23},()=>Array(10).fill(0)),garbage=Array(10).fill(0);
+  const blocks=p=>{
+    const r=FUMEN_ROT[p.rot];
+    return FUMEN_BLOCKS[p.type].map(([x,y])=>{
+      const q=r===0?[x,y]:r===1?[y,-x]:r===2?[-x,-y]:[-y,x];
+      return [p.x+q[0],p.y+q[1]];
+    });
+  };
+  const put=(f,p,t)=>{for(const [x,y] of blocks(p))if(y>=0&&y<23&&x>=0&&x<10)f[22-y][x]=t;};
+  const pages=[];let repeat=-1,comment='';
+  while(pos<vals.length){
+    if(repeat>0)repeat--;
+    else{
+      rows=rows.map(r=>r.slice());garbage=garbage.slice();
+      let i=0,changed=true;
+      while(i<240){
+        const v=poll(2),diff=Math.floor(v/240)-8,n=v%240+1;
+        if(diff===0&&n===240)changed=false;
+        for(let k=0;k<n;k++,i++){if(i<230)rows[Math.floor(i/10)][i%10]+=diff;else garbage[i%10]+=diff;}
+      }
+      if(!changed)repeat=poll(1);
+    }
+    let a=poll(3);
+    const t=a%8;a=Math.floor(a/8);
+    const rc=a%4;a=Math.floor(a/4);
+    const loc=a%240;a=Math.floor(a/240);
+    const rise=a%2;a=Math.floor(a/2);
+    const mirror=a%2;a=Math.floor(a/2);
+    a=Math.floor(a/2); // colorize flag
+    const hasComment=a%2;a=Math.floor(a/2);
+    const lock=!(a%2);
+    if(hasComment){
+      const len=poll(2);let text='';
+      for(let k=0;k<Math.floor((len+3)/4);k++){let v=poll(5);for(let j=0;j<4;j++){text+=CHARS[v%(CHARS.length+1)];v=Math.floor(v/(CHARS.length+1));}}
+      comment=unescape(text.slice(0,len));
+    }
+    let piece=null;
+    if(t>0&&t<8){
+      const type=FUMEN_TYPES[t],sh=(FUMEN_SHIFT[type]||[])[FUMEN_ROT[rc]]||[0,0];
+      piece={type,rot:rc,x:loc%10+sh[0],y:22-Math.floor(loc/10)+sh[1]};
+    }
+    const named=f=>f.map(r=>r.map(v=>FUMEN_TYPES[v]||0));
+    const placed=rows.map(r=>r.slice());
+    if(piece)put(placed,piece,t);
+    pages.push({field:named(rows),placed:named(placed),piece:piece&&{type:piece.type,rot:FUMEN_ROT[piece.rot]},comment});
+    if(lock){
+      if(piece)rows=placed;
+      rows=rows.filter(r=>r.some(v=>!v));
+      while(rows.length<23)rows.unshift(Array(10).fill(0));
+      if(rise){rows.shift();rows.push(garbage);garbage=Array(10).fill(0);}
+      if(mirror)rows=rows.map(r=>r.slice().reverse());
+    }
+  }
+  return pages;
+}
 
 const $=s=>document.querySelector(s);
 const well=$('#well'),wctx=well.getContext('2d');
 const holdC=$('#hold'),hctx=holdC.getContext('2d');
 const nextC=$('#next'),nctx=nextC.getContext('2d');
-const wellwrap=$('#wellwrap'),feed=$('#feed'),callout=$('#callout'),ov=$('#ov'),card=$('#card'),statsEl=$('#stats');
+const modetag=$('#modetag'),wellwrap=$('#wellwrap'),feed=$('#feed'),callout=$('#callout'),ov=$('#ov'),card=$('#card'),statsEl=$('#stats');
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ---------- DPC setups ----------
+// From the Hard Drop wiki, https://harddrop.com/wiki/DPC_Setups. Rows run top to bottom and sit on the floor.
+// '.' empty, lowercase = the piece kept in hold from the previous PC, 'P' = the T of the T-spin.
+// build is the shape before the T-spin; tsd is the board with that T in place, after any lines the build cleared,
+// so its T sits where it lands on the real board once the build is done.
+// pair: the wiki mirrors this setup depending on piece order, so its mirror ranks right after it;
+// other mirrors are only a last resort (S/Z and J/L holds reach theirs this way, being the only match).
+// pc: a smallest set of perfect clears of what the T-spin leaves that between them cover all 5040 orders of the
+// next bag (computed with pcTilings/slotsOrder, hold = its first piece); one letter per piece.
+const DPC_SETUPS=[
+  {hold:'O',name:'Kuruma DPC',build:'.......S../.......SSI/LLLJJ...SI/LOOJZZ.ooI/.OOJ.ZZooI',tsd:'.......S../.......SSI/LLLJJPPPSI/LOOJZZPOOI/.OOJ.ZZOOI',pc:['ILLLSSJJOO/ILTSSZJ.OO/ITTTZZJ.../I...Z.....','ILSTTTJJOO/ILSSTZJ.OO/ILLSZZJ.../I...Z.....']},
+  {hold:'O',name:'TSD DPC',build:'........S./I.......SS/ILOOJJ...S/ILOOJZZ.oo/ILL.J.ZZoo',tsd:'........S./I.......SS/ILOOJJPPPS/ILOOJZZPOO/ILL.J.ZZOO',pc:['OOLLSZZJJJ/OOTLSSZZ.J/.TTTIIII../...L.S....','SZZIIIIJJJ/SSZZLLOO.J/.STTTLOO../...T.L....','IIIITTTJJJ/ZZLLSTOO.J/.ZZLSSOO../...L.S....']},
+  {hold:'S',name:'Kuruma DPC',build:'.......S../.......SSI/sLLJJ...SI/ssLJZZ.OOI/.sLJ.ZZOOI',tsd:'.......S../.......SSI/SLLJJPPPSI/SSLJZZPOOI/.SLJ.ZZOOI',pc:['ILLLSSJJOO/ILTSSZJ.OO/ITTTZZJ.../I...Z.....','ILSTTTJJOO/ILSSTZJ.OO/ILLSZZJ.../I...Z.....']},
+  {hold:'S',name:'Lime DPC',build:'...OO...../I..OO...../I...SSZZLL/IJ.SSssZZL/IJJJss...L',tsd:'...OO...../I..OO...../IPPPSSZZLL/IJPSSSSZZL/IJJJSS...L',pc:['JJJIIIITTT/ZZJ..OOSSL/.ZZ..OOLLL/......SST.','LLLIIIIJJJ/LOO..SZZTJ/.OO..SSTTT/......SZZ.','OOJIIIITTT/OOJ..SLLTZ/.JJ..SSLZZ/......SLZ.','JJJIIIILOO/ZZJ..LLLOO/.ZZ..TTTSS/......TSS.','OOJIIIITTT/OOJ..SZZTL/.JJ..SSLLL/......SZZ.','SLLIIIITTT/SSL..OOJTZ/.SL..OOJZZ/......JJZ.']},
+  {hold:'I',name:'Fake Butter DPC',build:'.....L..../...LLL..../S...ZJIIII/SS.ZZJJJOO/.S.ZiiiiOO',tsd:'.....L..../...LLL..../SPPPZJIIII/SSPZZJJJOO/.S.ZIIIIOO',pair:true,pc:['IZZTTTJJLL/ISZZT.JOOL/ISS...JOOL/I.S.......','IZZTTTLOOJ/ISZZT.LOOJ/ISS...LLJJ/I.S.......']},
+  {hold:'I',name:'Pelican DPC',build:'.....OO..I/.....OO..I/SZZ...JJJI/SSZZ.LLLJI/.S...Liiii',tsd:'.....OO..I/.....OO..I/SZZPPPJJJI/SSZZPLLLJI/.S...LIIII',pair:true,pc:['IZZTTTLLJJ/ISZZT..LJ./ISSOO..LJ./I.SOO.....']},
+  {hold:'I',name:'Bad TKI DPC',build:'.ZJ..LLL../ZZJ..LOOS./ZJJ...OOSS/iiii.IIIIS',tsd:'.ZJ..LLL../ZZJ..LOOS./ZJJPPPOOSS/IIIIPIIIIS',pair:true,pc:['JJSSTZZLLI/JSSTTTZZLI/J..OO...LI/...OO....I']},
+  {hold:'J',name:'MKO SPC',build:'..ZZ.....I/...ZZJ.OOI/LLLSSJjOOI/L.SSJJjjjI',tsd:'.PZZ.....I/.PPZZJ.OOI/LPSSJJJJJI',pc:['IOOSZZJJJL/IOOSSZZLLL/I...STTTJ./I.....T...','IOOJLLLSSZ/IOOJJJSSZZ/I...LTTTZ./I.....T...','IOOSLLTTTZ/IOOSSLJJZZ/I...SLJTZ./I.....J...']},
+  {hold:'J',name:'TSM J SPC (O 먼저)',build:'....J...../..SSJJJ..I/.SSZj....I/OOZZj...LI/OOZjj.LLLI',tsd:'....J...../..SSJJJ..I/.SSZJP...I/OOZZJPP.LI/OOZJJPLLLI',pc:['IJJSSLLLOO/IJSS.LZZOO/IJ.....ZZ./I.....TTT./.......T..']},
+  {hold:'J',name:'TSM J SPC (S 먼저)',build:'....J...../..OOJJJ..I/.ZOOj....I/ZZSSj...LI/ZSSjj.LLLI',tsd:'....J...../..OOJJJ..I/.ZOOJP...I/ZZSSJPP.LI/ZSSJJPLLLI',pc:['IJJSSLLLOO/IJSS.LZZOO/IJ.....ZZ./I.....TTT./.......T..']},
+  {hold:'T',name:'OSZ Ball DPC',build:'I.Z......./IZZ......./IZ.....LS./ItJJJOOLSS/ttt.JOOLLS',tsd:'I.Z......./IZZ......./IZPPP..LS./TTTPJOOLLS',pc:['TTTJJOOLLI/.T.JSOOZLI/...JSSZZLI/.....SZ..I']}
+];
+const cellIndex=(r,c)=>r*COLS+c;
+const keyOf=cells=>cells.map(([r,c])=>cellIndex(r,c)).sort((a,b)=>a-b).join();
+function cellsKey(t,r,x,y){
+  const m=ROT[t][r],k=[];
+  for(let i=0;i<m.length;i++)for(let j=0;j<m.length;j++)if(m[i][j])k.push(cellIndex(y+i,x+j));
+  return k.sort((a,b)=>a-b).join();
+}
+// Turn a setup into board coordinates: one 4-cell slot per piece of the build, plus the T-spin slot.
+function prepSetup(s,mirrored){
+  const flip=row=>mirrored?[...row].reverse().map(ch=>{const u=ch.toUpperCase(),v=mirrorPiece(u);return ch===u?v:v.toLowerCase();}).join(''):row;
+  const build=s.build.split('/').map(flip),tsd=s.tsd?s.tsd.split('/').map(flip):null;
+  const top=TOT-build.length,seen=new Set(),slots=[];
+  build.forEach((row,r)=>[...row].forEach((ch,c)=>{
+    if(ch==='.'||ch==='G'||ch==='P'||seen.has(r+','+c))return;
+    const cells=[],stack=[[r,c]];seen.add(r+','+c);
+    while(stack.length){
+      const [y,x]=stack.pop();cells.push([top+y,x]);
+      for(const [dy,dx] of [[1,0],[-1,0],[0,1],[0,-1]]){
+        const ny=y+dy,nx=x+dx;
+        if(build[ny]&&build[ny][nx]===ch&&!seen.has(ny+','+nx)){seen.add(ny+','+nx);stack.push([ny,nx]);}
+      }
+    }
+    slots.push({id:slots.length,t:ch.toUpperCase(),cells,key:keyOf(cells)});
+  }));
+  // the T-spin: its own diagram (drawn after the build's line clears), or P cells in the build itself
+  const src=s.tsd?tsd:build,ttop=TOT-src.length,tcells=[];
+  src.forEach((row,r)=>[...row].forEach((ch,c)=>{if(ch==='P')tcells.push([ttop+r,c]);}));
+  // minimal PC solutions: one letter per piece (lowercase for a second piece of a kind), rows on the floor
+  const pcMin=(s.pc||[]).map(d=>{
+    const rows=d.split('/').map(flip),top=TOT-rows.length,by={};
+    rows.forEach((row,r)=>[...row].forEach((ch,c)=>{if(ch!=='.')(by[ch]=by[ch]||[]).push([top+r,c]);}));
+    return Object.keys(by).map((k,id)=>({id,t:k.toUpperCase(),cells:by[k],key:keyOf(by[k])}));
+  });
+  // lines the T-spin clears; when the build clears none of its own, the T may go in before the build is done
+  // (the wiki's "T-spin in the middle of the bag"), as long as it clears exactly those lines
+  let spin=null;
+  if(tcells.length){
+    const bd=Array.from({length:TOT},()=>Array(COLS).fill(0));
+    for(const sl of slots)for(const [r,c] of sl.cells)bd[r][c]=sl.t;
+    const own=placeOn(bd,[],0);
+    spin={cells:tcells,key:keyOf(tcells),lines:placeOn(own.board,tcells,'T').removed.length,early:!own.removed.length};
+  }
+  return {name:s.name+(mirrored?' 반전':''),hold:s.hold&&(mirrored?mirrorPiece(s.hold):s.hold),mirrored,slots,tsd:spin,pcMin};
+}
+const DPC_VARIANTS=[
+  ...DPC_SETUPS.flatMap(s=>s.pair?[prepSetup(s,false),prepSetup(s,true)]:[prepSetup(s,false)]),
+  ...DPC_SETUPS.filter(s=>!s.pair).map(s=>prepSetup(s,true))
+];
+
+// Can piece t travel from its spawn and come to rest exactly on the cells in `key`?
+function reachable(b,t,key){
+  let y=HID-2;const x=t==='O'?4:3;
+  if(!fitsOn(b,t,0,x,y))return false;
+  if(fitsOn(b,t,0,x,y+1))y++;
+  const seen=new Set([x+','+y+',0']),todo=[[x,y,0]];
+  while(todo.length){
+    const [px,py,pr]=todo.pop();
+    if(!fitsOn(b,t,pr,px,py+1)&&cellsKey(t,pr,px,py)===key)return true;
+    const next=[[px-1,py,pr],[px+1,py,pr],[px,py+1,pr]].filter(([nx,ny,nr])=>fitsOn(b,t,nr,nx,ny));
+    for(const d of [1,-1,2]){const s=rotateOn(b,t,pr,px,py,d);if(s)next.push([s.x,s.y,s.r]);}
+    for(const n of next){const k=n.join();if(!seen.has(k)){seen.add(k);todo.push(n);}}
+  }
+  return false;
+}
+// Fill cells on a copy of the board and clear full rows; returns the board and the cleared row indices.
+function placeOn(b,cells,t){
+  const nb=b.map(r=>r.slice());
+  for(const [r,c] of cells)nb[r][c]=t;
+  const removed=[];nb.forEach((r,i)=>{if(r.every(Boolean))removed.push(i);});
+  const kept=nb.filter((r,i)=>!removed.includes(i));
+  while(kept.length<TOT)kept.unshift(Array(COLS).fill(0));
+  return {board:kept,removed};
+}
+// Move a slot down past cleared rows (row indices from before the clear).
+function shiftSlot(s,removed){
+  if(!removed.length)return s;
+  const cells=s.cells.map(([r,c])=>[r+removed.filter(x=>x>r).length,c]);
+  return Object.assign({},s,{cells,key:keyOf(cells)});
+}
+// Is there a play, holding at most once per piece, that fills every remaining slot and then lands
+// a T on the T-spin slot (if there is one)? cur is the piece about to spawn, queue the pieces after it;
+// '*' is a piece that may only go into hold.
+function setupFeasible(b,slots,tsd,cur,hold,queue){
+  const memo=new Map();
+  const go=(b,left,ts,cur,hold,qi)=>{
+    if(!left.length&&!ts)return true;
+    if(!cur)return false;
+    const key=left.map(s=>s.id).join('.')+(ts?'':'!')+'|'+cur+(hold||'-')+qi;
+    if(memo.has(key))return memo.get(key);
+    let ok=false;
+    // place the current piece, or swap it into hold and place what comes out
+    const tries=[[cur,hold,qi],hold?[hold,cur,qi]:[queue[qi],cur,qi+1]];
+    for(const [p,h,n] of tries){
+      if(ok||!p||p==='*')continue;
+      if(!left.length){ok=p==='T'&&reachable(b,'T',ts.key);continue;}
+      if(p==='T'&&ts&&ts.early&&reachable(b,'T',ts.key)){
+        const {board,removed}=placeOn(b,ts.cells,'T');
+        if(removed.length===ts.lines&&go(board,left.map(o=>shiftSlot(o,removed)),null,queue[n],h,n+1)){ok=true;break;}
+      }
+      for(const s of left){
+        if(s.t!==p||!reachable(b,p,s.key))continue;
+        const {board,removed}=placeOn(b,s.cells,p);
+        if(go(board,left.filter(o=>o!==s).map(o=>shiftSlot(o,removed)),ts,queue[n],h,n+1)){ok=true;break;}
+      }
+    }
+    memo.set(key,ok);return ok;
+  };
+  return go(b,slots,tsd,cur,hold,0);
+}
+
+// Mountainous Stacking 2, from the Hard Drop wiki (https://harddrop.com/wiki/Mountainous_Stacking).
+// The first bag (L kept in hold), then second-bag setups drawn over it: G is the first bag, P the T of the
+// T-spin triple, lowercase the L held from the first bag. Setup D' is the wiki's alternative D shape.
+// Ordered by PC rate (bonus 99.76%, A 99.29%, B/C 98.57%, D 97.46%), which is the order the guide prefers them in.
+// pc: minimal PC sets for what the T-spin triple leaves, as for DPC.
+const MS2_BAG1={name:'1가방',build:'IS......../ISS....T../IJS.ZZTTOO/IJJJ.ZZTOO'};
+const MS2_SETUPS=[
+  {name:'보너스 셋업',build:'lLLL....../lLJJ....../llJ....SS./GGJPZZSSOO/GGGPPZZGOO/GGGPGGGGGG/GGGG.GGGGG',pc:['IIIIOOiiii/....OOZZLL/....JJJZZL/...TTTJ..L/....T.....','IIIIOOSLLi/....OOSSLi/....JJJSLi/...TTTJ..i/....T.....','IIIIJJLLLi/....JSLOOi/....JSSOOi/...TTTS..i/....T.....','IIIIJJJLLi/....OOJZLi/....OOZZLi/...TTTZ..i/....T.....','IIIIOOJJLL/....OOJZZL/....iiiiZZ/...TTTJ..L/....T.....','IIIILLLJJJ/....LZOOSJ/....ZZOOSS/...iiii..S/....Z.....','IIIIJJSTTT/....ZZSSLL/....JZZSTL/...iiii..L/....J.....','IIIILOOJJJ/....LOOZSJ/....LLZZSS/...TTTZ..S/....T.....','IIIIJSSOOi/....JJJOOi/....SSLLLi/...TTTL..i/....T.....','IIIIJJZOOi/....JZZOOi/....SSLLLi/...SSZL..i/....J.....','IIIISOOZJi/....SSZZJi/....TSZJJi/...TTOO..i/....T.....','IIIITTTZSS/....JJZZLL/....JTZSSL/...iiii..L/....J.....','IIIIZZSTTT/....JJSSLL/....JZZSTL/...iiii..L/....J.....','IIIILLLOOi/....ZZJOOi/....SSJJJi/...SSZZ..i/....L.....','IIIIOOZZLi/....OOLLLi/....JJJZZi/...TTTJ..i/....T.....','IIIIZZLLLi/....JZZOOi/....JJJOOi/...TTTL..i/....T.....','IIIIiiiiOO/....ZZSSOO/....TZZJJJ/...TTSS..J/....T.....','IIIIiiiiOO/....ZZSSOO/....TSSJJJ/...TTZZ..J/....T.....','IIIIZZSSOO/....iiiiOO/....TSSJJJ/...TTZZ..J/....T.....','IIIILLLOOi/....SSJOOi/....ZZJJJi/...SSZZ..i/....L.....']},
+  {name:'셋업 A',build:'LL.......I/lL.......I/lLJJ.....I/llJ....SSI/GGJPZZSSOO/GGGPPZZGOO/GGGPGGGGGG/GGGG.GGGGG',pc:['..JIIIILL./..JJJSSZL./....SSZZL./...TTTZ.../....T.....','..OOJJTTT./..OOJSSTL./....SSLLL./...IIII.../....J.....','..IIIIZOO./..JJJZZOO./....JZLLL./...TTTL.../....T.....','..LLLIIII./..LTTTJOO./....SSJOO./...SSJJ.../....T.....','..JZZIIII./..JJJLLOO./....ZZLOO./...TTTL.../....T.....','..OOJSSLL./..OOJJJZL./....SSZZL./...TTTZ.../....T.....','..OOJJSLL./..OOJTSSL./....TTTSL./...IIII.../....J.....','..OOIIIIJ./..OOZZSSJ./....TZZJJ./...TTSS.../....T.....','..LLLIIII./..LSJJJOO./....TTTOO./...SSTJ.../....S.....','..OOIIIIJ./..OOZZSSJ./....TSSJJ./...TTZZ.../....T.....','..OOLLLSS./..OOLZJJJ./....ZZSSJ./...IIII.../....Z.....','..OOZZJJJ./..OOTZZSS./....TTSSJ./...IIII.../....T.....','..JJJIIII./..ZZSLLOO./....SSLOO./...ZZSL.../....J.....','..TTTSSZJ./..IIIIZZJ./....SSZJJ./...TLLL.../....L.....','..JTTTZOO./..JJJZZOO./....SSLLL./...SSZL.../....T.....','..TTTSLLL./..JJJSSOO./....JZSOO./...TZZL.../....Z.....','..SLLIIII./..SSLZJOO./....ZZJOO./...SZJJ.../....L.....','..SZZLLOO./..SSZZLOO./....TIIII./...STTL.../....T.....','..LLLZJOO./..LSZZJOO./....ZIIII./...SSJJ.../....S.....','..SJJJLLL./..SSIJZOO./....IZZOO./...SIZL.../....I.....','..JTTTZZL./..JJJSSZZ./....SSLLL./...IIII.../....T.....']},
+  {name:'셋업 B',build:'IIII....../lLLL....../lLJJ....../llJ....SS./GGJPZZSSOO/GGGPPZZGOO/GGGPGGGGGG/GGGG.GGGGG',pc:['....OOIIII/....OOZZLL/....JJJZZL/...TTTJ..L/....T.....','....OOSLLI/....OOSSLI/....JJJSLI/...TTTJ..I/....T.....','....JJLLLI/....JSLOOI/....JSSOOI/...TTTS..I/....T.....','....JJJLLI/....OOJZLI/....OOZZLI/...TTTZ..I/....T.....','....JJIIII/....JSZZLL/....JSSZZL/...TTTS..L/....T.....','....JJZOOI/....JZZOOI/....JZLLLI/...TTTL..I/....T.....','....JSSLLI/....JJJZLI/....SSZZLI/...TTTZ..I/....T.....','....IOOJJJ/....IOOZSJ/....ILZZSS/...LLLZ..S/....I.....','....OOJJLL/....OOJZZL/....IIIIZZ/...TTTJ..L/....T.....','....LLLJJJ/....LZOOSJ/....ZZOOSS/...IIII..S/....Z.....','....JSSOOI/....JJJOOI/....SSLLLI/...TTTL..I/....T.....','....SOOZJI/....SSZZJI/....TSZJJI/...TTOO..I/....T.....','....IIIILL/....OOJJSS/....OOJSSL/...TTTJ..L/....T.....','....IIIISS/....OOJJLL/....OOJSSL/...TTTJ..L/....T.....','....JJZOOI/....JZZOOI/....SSLLLI/...SSZL..I/....J.....','....OOZZLI/....OOLLLI/....JJJZZI/...TTTJ..I/....T.....','....IIIIOO/....ZZSSOO/....TZZJJJ/...TTSS..J/....T.....','....JJSTTT/....ZZSSLL/....JZZSTL/...IIII..L/....J.....','....ZZLLLI/....JZZOOI/....JJJOOI/...TTTL..I/....T.....','....LLLJJJ/....LSSZOO/....SSZZOO/...TTTZ..J/....T.....','....LLLOOI/....ZZJOOI/....SSJJJI/...SSZZ..I/....L.....','....JJIIII/....JOOTLL/....SSTTTL/...SSOO..L/....J.....','....ZZSSOO/....IIIIOO/....TSSJJJ/...TTZZ..J/....T.....','....LLLJJJ/....TTTZOO/....SSZZOO/...SSTZ..J/....L.....']},
+  {name:'셋업 C',build:'JJOO....../JSOO..l..I/JSS...lLLI/GGSPZZllLI/GGGPPZZGLI/GGGPGGGGGG/GGGG.GGGGG',pc:['IIIILLLJJJ/....LSSOOJ/....SS.OO./...TTT..../....T.....','IIIIJJZLOO/....JZZLOO/....JZ.LL./...TTT..../....T.....','IIIIJJJLLL/....OOJLSS/....OO.SS./...TTT..../....T.....','IIIIJJZLLL/....JZZLSS/....JZ.SS./...TTT..../....T.....','IIIIJSSLOO/....JJJLOO/....SS.LL./...TTT..../....T.....','IIIIOOLJSS/....LLLJJJ/....OO.SS./...TTT..../....T.....','IIIIJJZLOO/....JZZLOO/....SS.LL./...SSZ..../....J.....','IIIIOOLJJZ/....LLLJZZ/....OO.JZ./...TTT..../....T.....','IIIISLLLOO/....SSZZOO/....TS.ZZ./...TTL..../....T.....','IIIILLLJJJ/....TTTOOJ/....SS.OO./...SST..../....L.....','IIIILLLJJZ/....TTTJZZ/....SS.JZ./...SST..../....L.....','IIIITLLLOO/....SLZZOO/....SS.ZZ./...TTS..../....T.....','IIIITOOJJZ/....SOOJZZ/....SS.JZ./...TTS..../....T.....','IIIITJZZOO/....SJJJOO/....SS.ZZ./...TTS..../....T.....']},
+  {name:'셋업 D',build:'........SS/IIII..lSSL/JJJ...lLLL/GGJPZZllOO/GGGPPZZGOO/GGGPGGGGGG/GGGG.GGGGG',pc:['OOJIIIILLL/OOJJJSSL../....SS..../...TTT..../....T.....','OOLLLJIIII/OOLZZJJJ../....ZZ..../...TTT..../....T.....','JIIIIOOLLL/JJJZZOOL../....ZZ..../...TTT..../....T.....','OOIIIIZLLL/OOTTTZZL../....JJ..../...TJZ..../....J.....','OOSTTTIIII/OOSSTLLL../....JJ..../...SJL..../....J.....','OOSTTTZLLL/OOSSTZZL../....JJ..../...SJZ..../....J.....','OOIIIIZLLL/OOJJJZZL../....SS..../...SSZ..../....J.....','OOSJJJZLLL/OOSSIZZL../....IZ..../...SIJ..../....I.....']},
+  {name:"셋업 D'",build:'........SS/OOJJ..lSSI/OOJ...lLLI/GGJPZZllLI/GGGPPZZGLI/GGGPGGGGGG/GGGG.GGGGG',pc:['OOJIIIILLL/OOJJJSSL../....SS..../...TTT..../....T.....','OOLLLJIIII/OOLZZJJJ../....ZZ..../...TTT..../....T.....','JIIIIOOLLL/JJJZZOOL../....ZZ..../...TTT..../....T.....','OOIIIIZLLL/OOTTTZZL../....JJ..../...TJZ..../....J.....','OOSTTTIIII/OOSSTLLL../....JJ..../...SJL..../....J.....','OOSTTTZLLL/OOSSTZZL../....JJ..../...SJZ..../....J.....','OOIIIIZLLL/OOJJJZZL../....SS..../...SSZ..../....J.....','OOSJJJZLLL/OOSSIZZL../....IZ..../...SIJ..../....I.....']}
+];
+
+// ---------- PC solver ----------
+// Can piece t travel from its spawn and come to rest on the cells in `key`? -1 if not, otherwise the best
+// T-spin it can lock with there (2 full, 1 mini, 0 none): a T-spin must arrive by a rotation and rest unmoved.
+function landSpin(b,t,key){
+  let y=HID-2;const x=t==='O'?4:3;
+  if(!fitsOn(b,t,0,x,y))return -1;
+  if(fitsOn(b,t,0,x,y+1))y++;
+  const seen=new Set([x+','+y+',0']),todo=[[x,y,0]];
+  let best=-1;
+  const rests=(px,py,pr)=>!fitsOn(b,t,pr,px,py+1)&&cellsKey(t,pr,px,py)===key;
+  while(todo.length){
+    const [px,py,pr]=todo.pop();
+    if(best<0&&rests(px,py,pr)){best=0;if(t!=='T')return 0;}
+    const next=[[px-1,py,pr],[px+1,py,pr],[px,py+1,pr]].filter(([nx,ny,nr])=>fitsOn(b,t,nr,nx,ny));
+    for(const d of [1,-1,2]){
+      const s=rotateOn(b,t,pr,px,py,d);if(!s)continue;
+      if(t==='T'&&rests(s.x,s.y,s.r)){const k=spinKind(b,s.x,s.y,s.r,d===2?-1:s.kick);best=Math.max(best,k==='full'?2:k==='mini'?1:0);}
+      next.push([s.x,s.y,s.r]);
+    }
+    for(const n of next){const k=n.join();if(!seen.has(k)){seen.add(k);todo.push(n);}}
+  }
+  return best;
+}
+// Ways to fill every empty cell of the bottom `lines` rows with `pieces` (each used at most as often as listed;
+// some may be left over), ignoring order.
+// A piece may skip rows (it would land after they clear), so a tiling is only a set of slots; slotsOrder
+// decides whether some order actually builds it. Slots: {id,t,cells,key}, rows as they are now.
+function pcTilings(b,lines,pieces){const it=pcTilingsSteps(b,lines,pieces);let r;while(!(r=it.next()).done);return r.value;}
+// the same, a step at a time (yields every few hundred search nodes) for background work
+function* pcTilingsSteps(b,lines,pieces){
+  const floor=TOT-lines,free=new Set(),byCell=new Map();
+  for(let r=floor;r<TOT;r++)for(let c=0;c<COLS;c++)if(!b[r][c])free.add(r*COLS+c);
+  const rowSets=[];
+  (function pick(start,acc){if(acc.length)rowSets.push(acc);for(let r=start;r<TOT;r++)pick(r+1,[...acc,r]);})(floor,[]);
+  for(const t of new Set(pieces))for(const m of ROT[t]){
+    const rel=[];m.forEach((row,i)=>row.forEach((v,j)=>{if(v)rel.push([i,j]);}));
+    const top=Math.min(...rel.map(a=>a[0])),h=Math.max(...rel.map(a=>a[0]))-top+1;
+    for(const rows of rowSets){
+      if(rows.length!==h)continue;
+      for(let dx=-3;dx<COLS;dx++){
+        const cells=rel.map(([i,j])=>[rows[i-top],j+dx]);
+        if(cells.some(([r,c])=>c<0||c>=COLS||!free.has(r*COLS+c)))continue;
+        const key=keyOf(cells),pl={t,cells,key};
+        for(const [r,c] of cells){const i=r*COLS+c;if(!byCell.has(i))byCell.set(i,new Map());byCell.get(i).set(t+key,pl);}
+      }
+    }
+  }
+  const out=[],left={},covered=new Set(),chosen=[];let nodes=0;
+  for(const t of pieces)left[t]=(left[t]||0)+1;
+  function* fill(){
+    if(++nodes%300===0)yield;
+    let target=-1;for(const i of free)if(!covered.has(i)){target=i;break;}
+    if(target<0){out.push(chosen.map((p,id)=>({id,t:p.t,cells:p.cells,key:p.key})));return;}
+    for(const pl of (byCell.get(target)||new Map()).values()){
+      if(!left[pl.t]||pl.cells.some(([r,c])=>covered.has(r*COLS+c)))continue;
+      left[pl.t]--;pl.cells.forEach(([r,c])=>covered.add(r*COLS+c));chosen.push(pl);
+      yield* fill();
+      left[pl.t]++;pl.cells.forEach(([r,c])=>covered.delete(r*COLS+c));chosen.pop();
+    }
+  }
+  yield* fill();
+  return out;
+}
+// Can these slots all be filled playing cur, then the queue, holding at most once per piece? '*' in the queue
+// is a piece that may only go into hold (the next bag, which a loop leaves alone). Returns -1 if not, otherwise
+// the best T-spin the order allows: lines cleared * 3 + (2 full | 1 mini), 0 for none.
+// `lands` caches landSpin by board and slot; pass the same Map to calls on the same starting board.
+// With `any` it stops at the first order that works (returns 0 or -1), for when only feasibility matters.
+function slotsOrder(b,slots,cur,hold,queue,lands=new Map(),any=false){
+  const memo=new Map();
+  const land=(b,t,key)=>{
+    const k=b.map(r=>r.map(v=>v?1:0).join('')).join('')+t+key;
+    if(!lands.has(k))lands.set(k,landSpin(b,t,key));
+    return lands.get(k);
+  };
+  const go=(b,left,cur,hold,qi)=>{
+    if(!left.length)return 0;
+    if(!cur)return -1;
+    const key=left.map(s=>s.id).join('.')+'|'+cur+(hold||'-')+qi;
+    if(memo.has(key))return memo.get(key);
+    let best=-1;
+    const tries=[[cur,hold,qi]];
+    if(hold!==cur)tries.push(hold?[hold,cur,qi]:[queue[qi],cur,qi+1]);
+    for(const [p,h,n] of tries){
+      if(!p||p==='*'||any&&best>=0)continue;
+      for(const s of left){
+        if(s.t!==p)continue;
+        const spin=land(b,p,s.key);if(spin<0)continue;
+        const {board,removed}=placeOn(b,s.cells,p);
+        const rest=go(board,left.filter(o=>o!==s).map(o=>shiftSlot(o,removed)),queue[n],h,n+1);
+        if(rest<0)continue;
+        best=Math.max(best,rest,p==='T'&&spin>0&&removed.length?removed.length*3+spin:0);
+        if(any)break;
+      }
+    }
+    memo.set(key,best);return best;
+  };
+  return go(b,slots,cur,hold,0);
+}
 
 // ---------- storage ----------
 const load=(k,d)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}};
 const save=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}};
-const cfg=Object.assign({das:150,arr:33,sdf:20,sound:true},load('tetris.settings',{}));
+const cfg=Object.assign({das:150,arr:33,sdf:20,sound:true,mirror:'off',dpcHold:'IOSZ',dpcGuide:true,dpcJudge:true,loop:true},load('tetris.settings',{}));
 const best=Object.assign({marathon:0,sprint:0},load('tetris.best',{}));
 
 // ---------- state ----------
-let board,queue,cur,hold,holdUsed,state='menu',mode=load('tetris.mode','marathon');
-let score,lines,level,combo,b2b,pieces,elapsed,grav,lockT,lockResets,lowestY,lastRotate,lastKick,readyT,flashes=[];
-
-function reset(){
-  board=Array.from({length:TOT},()=>Array(COLS).fill(0));
-  queue=[];hold=null;holdUsed=false;cur=null;
-  score=0;lines=0;level=1;combo=-1;b2b=false;pieces=0;elapsed=0;grav=0;flashes=[];
-  feed.textContent='';
+// G holds everything the simulation reads or writes, so a snapshot is just structuredClone(G).
+// UI flow (state, readyT, flashes) and input (held, DAS) stay outside it.
+let G,state='menu',readyT=0,flashes=[];
+let mode=load('tetris.mode','marathon'),M;
+function newGame(){
+  return {
+    board:Array.from({length:TOT},()=>Array(COLS).fill(0)),
+    queue:[],cur:null,hold:null,holdUsed:false,
+    score:0,lines:0,level:1,combo:-1,b2b:false,pieces:0,elapsed:0,drawn:0,
+    grav:0,lockT:0,lockResets:0,lowestY:0,lastRotate:false,lastKick:0
+  };
 }
-function refill(){const b=['I','J','L','O','S','T','Z'];for(let i=b.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[b[i],b[j]]=[b[j],b[i]];}queue.push(...b);}
-function takeNext(){while(queue.length<8)refill();const t=queue.shift();while(queue.length<6)refill();return t;}
+function reset(){G=newGame();flashes=[];feed.textContent='';}
+function bag7(){const b=PIECES.slice();for(let i=b.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[b[i],b[j]]=[b[j],b[i]];}return b;}
+function takeNext(){while(G.queue.length<8)G.queue.push(...M.nextBag(G));G.drawn++;return G.queue.shift();}
 
-function fits(t,r,x,y){
+function fitsOn(b,t,r,x,y){
   const m=ROT[t][r];
   for(let i=0;i<m.length;i++)for(let j=0;j<m.length;j++){
     if(!m[i][j])continue;const bx=x+j,by=y+i;
     if(bx<0||bx>=COLS||by>=TOT)return false;
-    if(by>=0&&board[by][bx])return false;
+    if(by>=0&&b[by][bx])return false;
   }
   return true;
 }
-const grounded=()=>!fits(cur.type,cur.rot,cur.x,cur.y+1);
+const fits=(t,r,x,y)=>fitsOn(G.board,t,r,x,y);
+// SRS rotation with kicks: the resulting state, or null when every kick is blocked
+function rotateOn(b,t,r,x,y,d){
+  if(t==='O')return null;
+  const to=(r+(d===2?2:d)+4)%4;
+  const kicks=(d===2?(t==='I'?K_I180:K_180):(t==='I'?K_I:K_JLSTZ))[r+'>'+to];
+  for(let i=0;i<kicks.length;i++){
+    const nx=x+kicks[i][0],ny=y-kicks[i][1];
+    if(fitsOn(b,t,to,nx,ny))return {r:to,x:nx,y:ny,kick:i};
+  }
+  return null;
+}
+const grounded=()=>{const c=G.cur;return !fits(c.type,c.rot,c.x,c.y+1);};
 
 function spawn(t){
   const x=t==='O'?4:3,y=HID-2;
-  cur={type:t,rot:0,x,y};
-  if(!fits(t,0,x,y)){cur=null;endGame(false);return false;}
-  if(fits(t,0,x,y+1))cur.y++;
-  lockT=0;lockResets=0;lowestY=cur.y;grav=0;lastRotate=false;
+  if(!fits(t,0,x,y)){G.cur=null;endGame(false);return false;}
+  const c=G.cur={type:t,rot:0,x,y};
+  if(fits(t,0,x,y+1))c.y++;
+  G.lockT=0;G.lockResets=0;G.lowestY=c.y;G.grav=0;G.lastRotate=false;
   return true;
 }
 function afterMove(){
-  if(cur.y>lowestY){lowestY=cur.y;lockResets=0;}
-  if(lockResets<15){lockT=0;lockResets++;}
+  if(G.cur.y>G.lowestY){G.lowestY=G.cur.y;G.lockResets=0;}
+  if(G.lockResets<15){G.lockT=0;G.lockResets++;}
 }
 function tryMove(dx,dy){
-  if(!cur||!fits(cur.type,cur.rot,cur.x+dx,cur.y+dy))return false;
-  cur.x+=dx;cur.y+=dy;lastRotate=false;
-  if(dy>0){if(cur.y>lowestY){lowestY=cur.y;lockResets=0;}lockT=0;}else afterMove();
+  const c=G.cur;
+  if(!c||!fits(c.type,c.rot,c.x+dx,c.y+dy))return false;
+  c.x+=dx;c.y+=dy;G.lastRotate=false;
+  if(dy>0){if(c.y>G.lowestY){G.lowestY=c.y;G.lockResets=0;}G.lockT=0;}else afterMove();
   return true;
 }
 function rotate(d){
-  if(!cur||cur.type==='O')return;
-  const from=cur.rot,to=(from+(d===2?2:d)+4)%4;
-  const kicks=d===2?K_180:(cur.type==='I'?K_I:K_JLSTZ)[from+'>'+to];
-  for(let i=0;i<kicks.length;i++){
-    const dx=kicks[i][0],dy=-kicks[i][1];
-    if(fits(cur.type,to,cur.x+dx,cur.y+dy)){
-      cur.x+=dx;cur.y+=dy;cur.rot=to;afterMove();lastRotate=true;lastKick=i;return;
-    }
-  }
+  const c=G.cur;if(!c)return;
+  const s=rotateOn(G.board,c.type,c.rot,c.x,c.y,d);if(!s)return;
+  c.x=s.x;c.y=s.y;c.rot=s.r;afterMove();G.lastRotate=true;G.lastKick=d===2?-1:s.kick;
 }
 function hardDrop(){
-  if(!cur)return;let n=0;
-  while(fits(cur.type,cur.rot,cur.x,cur.y+1)){cur.y++;n++;}
-  if(n)lastRotate=false;
-  score+=2*n;sfx('drop');lockPiece();
+  const c=G.cur;if(!c)return;let n=0;
+  while(fits(c.type,c.rot,c.x,c.y+1)){c.y++;n++;}
+  if(n)G.lastRotate=false;
+  G.score+=2*n;sfx('drop');lockPiece();
 }
 function doHold(){
-  if(!cur||holdUsed)return;
-  const t=cur.type;holdUsed=true;
-  if(hold){const h=hold;hold=t;spawn(h);}else{hold=t;spawn(takeNext());}
+  if(!G.cur||G.holdUsed)return;
+  const h=G.hold;G.hold=G.cur.type;G.holdUsed=true;
+  spawn(h||takeNext());
   sfx('hold');
 }
+// 3-corner T-spin rule for a T at (x,y,r) that just rotated with kick index `kick` (-1 for a 180)
+function spinKind(b,x,y,r,kick){
+  const occ=(cx,cy)=>cx<0||cx>=COLS||cy>=TOT||(cy>=0&&!!b[cy][cx]);
+  const k=[occ(x,y),occ(x+2,y),occ(x,y+2),occ(x+2,y+2)];
+  if(k.filter(Boolean).length<3)return null;
+  const front={0:[0,1],1:[1,3],2:[2,3],3:[0,2]}[r];
+  return (k[front[0]]&&k[front[1]])||kick===4?'full':'mini';
+}
 function tspinKind(){
-  if(cur.type!=='T'||!lastRotate)return null;
-  const {x,y}=cur;
-  const occ=(cx,cy)=>cx<0||cx>=COLS||cy>=TOT||(cy>=0&&!!board[cy][cx]);
-  const c=[occ(x,y),occ(x+2,y),occ(x,y+2),occ(x+2,y+2)];
-  if(c.filter(Boolean).length<3)return null;
-  const front={0:[0,1],1:[1,3],2:[2,3],3:[0,2]}[cur.rot];
-  return (c[front[0]]&&c[front[1]])||lastKick===4?'full':'mini';
+  const c=G.cur;
+  if(c.type!=='T'||!G.lastRotate)return null;
+  return spinKind(G.board,c.x,c.y,c.rot,G.lastKick);
 }
 function lockPiece(){
-  const ts=tspinKind();
-  const m=ROT[cur.type][cur.rot];let above=true;
+  const ts=tspinKind(),c=G.cur,b=G.board;
+  const m=ROT[c.type][c.rot];let above=true;
+  const placed={type:c.type,key:cellsKey(c.type,c.rot,c.x,c.y)};
   for(let i=0;i<m.length;i++)for(let j=0;j<m.length;j++){
-    if(!m[i][j])continue;const by=cur.y+i;
-    if(by>=0)board[by][cur.x+j]=cur.type;
+    if(!m[i][j])continue;const by=c.y+i;
+    if(by>=0)b[by][c.x+j]=c.type;
     if(by>=HID)above=false;
   }
-  pieces++;cur=null;
+  G.pieces++;G.cur=null;
   if(above){endGame(false);return;}
   const full=[];
-  for(let r=0;r<TOT;r++)if(board[r].every(v=>v))full.push(r);
-  for(const r of full){board.splice(r,1);board.unshift(Array(COLS).fill(0));}
+  for(let r=0;r<TOT;r++)if(b[r].every(v=>v))full.push(r);
+  for(const r of full){b.splice(r,1);b.unshift(Array(COLS).fill(0));}
   const n=full.length,now=performance.now();
   if(n&&!reduced)full.forEach(r=>flashes.push({r,t:now}));
   scoreClear(n,ts);
-  if(mode==='sprint'&&lines>=40){endGame(true);return;}
-  holdUsed=false;
-  spawn(takeNext());
+  placed.removed=full;
+  const end=M.afterLock&&M.afterLock(G,placed);
+  if(end==='next'){newRound();return;}
+  if(end){endGame(end==='win');return;}
+  G.holdUsed=false;
+  if(spawn(takeNext()))turnStart();
 }
 function scoreClear(n,ts){
-  let pts=0,difficult=false;const lv=level;
+  let pts=0,difficult=false;const lv=G.level;
   if(ts==='full'){pts=[400,800,1200,1600][n];difficult=n>0;announce('T-SPIN'+(n?' '+['','SINGLE','DOUBLE','TRIPLE'][n]:''),'violet');sfx(n?'tspin':'lock');}
   else if(ts==='mini'){pts=[100,200,400][n]||400;difficult=n>0;announce('T-SPIN MINI'+(n?' '+['','SINGLE','DOUBLE'][n]:''),'violet');sfx(n?'tspin':'lock');}
   else if(n){pts=[0,100,300,500,800][n];difficult=n===4;if(n===4){announce('TETRIS','cyan');sfx('tetris');}else sfx('clear');}
   else sfx('lock');
   if(n){
-    if(difficult&&b2b){pts*=1.5;announce('BACK-TO-BACK','gold');}
-    b2b=difficult;
-    combo++;
-    if(combo>0){pts+=50*combo;announce(combo+' COMBO','dim');}
-  }else combo=-1;
-  score+=Math.round(pts*lv);
-  if(n&&board.every(row=>row.every(v=>!v))){score+=[0,800,1200,1800,2000][n]*lv;announce('PERFECT CLEAR','gold');}
-  lines+=n;
-  if(mode==='marathon'){const nl=Math.min(20,1+Math.floor(lines/10));if(nl>level){level=nl;announce('LEVEL '+level,'dim');}}
+    if(difficult&&G.b2b){pts*=1.5;announce('BACK-TO-BACK','gold');}
+    G.b2b=difficult;
+    G.combo++;
+    if(G.combo>0){pts+=50*G.combo;announce(G.combo+' COMBO','dim');}
+  }else G.combo=-1;
+  G.score+=Math.round(pts*lv);
+  if(n&&G.board.every(row=>row.every(v=>!v))){G.score+=[0,800,1200,1800,2000][n]*lv;announce('PERFECT CLEAR','gold');}
+  G.lines+=n;
 }
 
 // ---------- input ----------
@@ -321,7 +689,7 @@ function releaseDir(d){
 function handleShift(dt){
   if(!dasDir)return;
   const before=dasT;dasT+=dt;
-  if(dasT<cfg.das||!cur)return;
+  if(dasT<cfg.das||!G.cur)return;
   if(cfg.arr===0){while(tryMove(dasDir,0));return;}
   if(before<cfg.das)arrT=cfg.arr;else arrT+=dt;
   while(arrT>=cfg.arr){arrT-=cfg.arr;if(!tryMove(dasDir,0)){arrT=0;break;}}
@@ -338,7 +706,11 @@ const KEYMAP={ArrowLeft:'left',ArrowRight:'right',ArrowDown:'soft',ArrowUp:'cw',
 addEventListener('keydown',e=>{
   const inField=e.target&&e.target.tagName==='INPUT';
   if(e.code==='Escape'||e.code==='KeyP'){if(state==='play'||state==='ready'){pause();e.preventDefault();}else if(state==='paused'){resume();e.preventDefault();}return;}
-  if(e.code==='KeyR'&&!inField&&state!=='menu'){start(mode);e.preventDefault();return;}
+  if(e.code==='KeyR'&&!inField&&state!=='menu'){M.practice?retry():start(mode);e.preventDefault();return;}
+  if(M.practice&&!inField&&state!=='menu'){
+    if(e.code==='KeyN'){newRound();e.preventDefault();return;}
+    if(e.code==='Backspace'){undo();e.preventDefault();return;}
+  }
   if(e.code==='Enter'&&state==='menu'&&!(e.target&&e.target.classList&&e.target.classList.contains('mode'))){start(mode);e.preventDefault();return;}
   const k=KEYMAP[e.code];
   if(!k||inField)return;
@@ -383,14 +755,351 @@ function sfx(n){
   else if(n==='win'){[523,659,784,1047,1319].forEach((f,i)=>tone(f,.14,'square',.035,i*.07));}
 }
 
+// ---------- modes ----------
+// One object per mode. The engine only calls these hooks and never checks a mode's name,
+// so a new mode is a new entry here.
+//   name, desc()       menu label and subtitle
+//   setup(G)           optional: prepare board or queue before the first piece
+//   nextBag(G)         pieces appended whenever the queue runs low
+//   gravity(G)         cells per ms
+//   afterLock(G)       optional: runs after every lock and its scoring; 'win' or 'lose' ends the game, 'next' deals a new round
+//   stats              side panel rows: [label, value(G), big?]
+//   recordBest(G,won)  update `best`, return true on a new record
+//   result(G,won)      result card rows: [label, value, true for a hero number | 'note' for a sentence]
+//   title(won)         optional: result card heading
+//   practice           optional: enables undo (Backspace), retry with the same pieces (R) and new pieces (N)
+//   tag(G)             optional: text next to the title (default: name, plus a mirror note)
+//   targets(G)         optional: cells to outline on the board: [{t, cells:[[row,col]], now}]
+//   afterLock gets a second argument: {type, key, removed} for the piece just locked
+const MODES={
+  marathon:{
+    name:'마라톤',
+    desc:()=>'10줄마다 레벨 업 · 최고 '+best.marathon.toLocaleString()+'점',
+    nextBag:bag7,
+    gravity:G=>1/(Math.pow(.8-(G.level-1)*.007,G.level-1)*1000),
+    afterLock(G){const nl=Math.min(20,1+Math.floor(G.lines/10));if(nl>G.level){G.level=nl;announce('LEVEL '+G.level,'dim');}},
+    stats:[['점수',G=>G.score.toLocaleString(),true],['레벨',G=>G.level],['줄',G=>G.lines],['시간',G=>fmt(G.elapsed)],['PPS',pps]],
+    recordBest(G){if(G.score>best.marathon){best.marathon=G.score;return true;}return false;},
+    result:G=>[['점수',G.score.toLocaleString(),true],['레벨',G.level],['지운 줄',G.lines],['시간',fmt(G.elapsed)],['PPS',pps(G)],['최고 점수',best.marathon.toLocaleString()]]
+  },
+  sprint:{
+    name:'40줄 스프린트',
+    desc:()=>'40줄을 최대한 빨리 · 최고 '+(best.sprint?fmt(best.sprint):'기록 없음'),
+    nextBag:bag7,
+    gravity:()=>1/1000,
+    afterLock:G=>G.lines>=40?'win':null,
+    stats:[['시간',G=>fmt(G.elapsed),true],['남은 줄',G=>Math.max(0,40-G.lines)],['블록',G=>G.pieces],['PPS',pps]],
+    recordBest(G,won){if(won&&(!best.sprint||G.elapsed<best.sprint)){best.sprint=G.elapsed;return true;}return false;},
+    result:(G,won)=>[['기록',won?fmt(G.elapsed):'—',true],['지운 줄',G.lines+' / 40'],['블록 수',G.pieces],['PPS',pps(G)],['최고 기록',best.sprint?fmt(best.sprint):'—']]
+  },
+  dpc:guidedDrill({key:'dpc',name:'DPC 연습',first:'dpc',desc:'8줄 PC 직후 · 홀드 1개 + 2가방, 15블록으로 퍼펙트 클리어'}),
+  ms2:guidedDrill({key:'ms2',name:'산악쌓기 2호',first:'ms2',loop:true,desc:'1가방 확정 · T-스핀 트리플 → 3가방 PC → DPC 루프'})
+};
+// Perfect-clear drill. Starts from `board` (fumen; empty when omitted) with a random piece already in hold,
+// as if left over from the previous PC, followed by `bags` fresh bags. Success is a perfect clear within
+// `pieces` placements; it then rolls straight into a new round. Each round counts once toward the success rate,
+// so undoing or retrying after a miss doesn't change the stats.
+// With the mirror setting on (or on a coin flip with 'random') the board and a fixed hold piece are flipped;
+// G.mirror records it so later per-round data (targets) can be flipped the same way.
+function pcDrill(o){
+  const fail=(G,why)=>{G.fail=why;return 'lose';};
+  return {
+    name:o.name,practice:true,
+    desc:()=>o.desc+' · 최고 연속 '+(best[o.key]||0)+'회',
+    setup(G){
+      G.mirror=cfg.mirror==='on'||(cfg.mirror==='random'&&Math.random()<.5);
+      if(o.board)G.board=decodeFumen(o.board)[0].field;
+      if(G.mirror)G.board=mirrorRows(G.board);
+      const pool=o.holdPool?o.holdPool():PIECES;
+      G.hold=o.hold?(G.mirror?mirrorPiece(o.hold):o.hold):pool[Math.random()*pool.length|0];
+      for(let i=0;i<o.bags;i++)G.queue.push(...bag7());
+      G.need=(G.board.flat().filter(Boolean).length+4*o.pieces)/10;
+    },
+    nextBag:bag7,
+    gravity:()=>0,
+    afterLock(G){
+      if(G.board.every(r=>r.every(v=>!v))){
+        if(!roundCounted){
+          roundCounted=true;session.tries++;session.ok++;session.streak++;
+          if(session.streak>(best[o.key]||0)){best[o.key]=session.streak;save('tetris.best',best);}
+        }
+        return 'next';
+      }
+      const left=G.need-G.lines;
+      if(G.pieces>=o.pieces)return fail(G,o.pieces+'블록 안에 퍼펙트 클리어를 못 했습니다');
+      if(G.board.filter(r=>r.some(Boolean)).length>left)return fail(G,'남은 '+left+'줄로는 정리할 수 없는 모양입니다');
+      return null;
+    },
+    stats:[['성공',()=>session.ok+' / '+session.tries,true],['연속',()=>session.streak],['블록',G=>G.pieces+' / '+o.pieces],['남은 줄',G=>Math.max(0,(G.need||0)-G.lines)]],
+    recordBest(){
+      if(!roundCounted){roundCounted=true;session.tries++;session.streak=0;}
+      return false;
+    },
+    title:()=>'MISS',
+    result:G=>[['원인',G.fail||'블록이 천장에 닿았습니다','note'],['놓은 블록',G.pieces+' / '+o.pieces],['성공',session.ok+' / '+session.tries],['최고 연속',(best[o.key]||0)+'회']]
+  };
+}
+// ---------- background work ----------
+// Solver jobs that would stall a frame run a few milliseconds per frame instead (runJobs, from the game loop).
+// A job is {key, it: generator, done(result)}; finishJob runs one to the end at once when its result is needed now.
+const jobs=[];
+function runJobs(budget){
+  const end=Date.now()+budget;
+  while(jobs.length&&Date.now()<end){const j=jobs[0],r=j.it.next();if(r.done){jobs.shift();if(j.done)j.done(r.value);}}
+}
+function finishJob(key){
+  const i=jobs.findIndex(j=>j.key===key);if(i<0)return;
+  const j=jobs.splice(i,1)[0];let r;while(!(r=j.it.next()).done);if(j.done)j.done(r.value);
+}
+// PC tilings of what a setup's T-spin leaves, keyed by those rows and the pieces on hand (see guidedDrill.startPC)
+const tilingCache=new Map();
+const tilingKey=(b,lines,pieces)=>b.slice(TOT-lines).map(r=>r.map(x=>x?1:0).join('')).join('')+[...pieces].sort().join('');
+function tilingsFor(b,lines,pieces){
+  const k=tilingKey(b,lines,pieces);
+  finishJob(k);
+  if(!tilingCache.has(k))tilingCache.set(k,pcTilings(b,lines,pieces));
+  return tilingCache.get(k);
+}
+// queue the tilings for each setup's leftover rows, so none has to be worked out on the spot
+function prewarm(opts){
+  for(const opt of opts){
+    if(opt.next!=='pc')continue;
+    const bd=Array.from({length:TOT},()=>Array(COLS).fill(0));
+    const under=MS2_B2.some(l=>l.includes(opt))?MS2_B1[opt.mirrored?1:0].slots:[];
+    for(const sl of [...under,...opt.slots])for(const [r,c] of sl.cells)bd[r][c]=sl.t;
+    const own=placeOn(bd,[],0),after=placeOn(own.board,opt.tsd.cells,'T');
+    const lines=(MS2_B2.some(l=>l.includes(opt))?SEGS.ms2:SEGS.dpc).lines-own.removed.length-after.removed.length;
+    // the pieces on hand: a full bag, plus any piece of the setup's bag it didn't use (kept in hold)
+    const bag=[...PIECES];
+    for(const t of [...opt.slots.map(x=>x.t),'T']){const i=bag.indexOf(t);if(i>=0)bag.splice(i,1);}
+    const pieces=[...PIECES,...bag],k=tilingKey(after.board,lines,pieces);
+    if(tilingCache.has(k)||jobs.some(j=>j.key===k))continue;
+    jobs.push({key:k,it:pcTilingsSteps(after.board,lines,pieces),done:r=>tilingCache.set(k,r)});
+  }
+}
+
+// ---------- guided drills ----------
+// Every option a guided drill can steer toward, as slot lists (see prepSetup). next: 'pc' or the build stage that
+// follows. DPC options also carry the hold piece they start from.
+const GUIDE_OPTS=[];
+const addOpts=(list,extra)=>list.map(v=>{const o=Object.assign({},v,extra,{id:GUIDE_OPTS.length});GUIDE_OPTS.push(o);return o;});
+const DPC_OPTS=addOpts(DPC_VARIANTS,{next:'pc'});
+const MS2_B2=[false,true].map(m=>addOpts(MS2_SETUPS.map(s=>prepSetup(s,m)),{next:'pc'}));
+const MS2_B1=[false,true].map(m=>addOpts([prepSetup(MS2_BAG1,m)],{next:'b2'+(m?1:0)})[0]);
+const BUILD_NEXT={b20:MS2_B2[0],b21:MS2_B2[1]};
+// slotsOrder's T-spin value: lines * 3 + (2 full | 1 mini)
+const SPIN_NAME={4:'T-스핀 미니 싱글',5:'T-스핀 싱글',7:'T-스핀 미니 더블',8:'T-스핀 더블',10:'T-스핀 미니 트리플',11:'T-스핀 트리플'};
+// One perfect clear after another: a segment is Mountainous Stacking 2 (3 bags, 8 lines, 20 pieces, one piece
+// left in hold) or a DPC (that piece and 2 bags, 6 lines, 15 pieces). Within a segment the drill walks build
+// stages, each a set of GUIDE_OPTS, then the PC stage, whose options come from the solver when it starts:
+// T-spin solutions (not a T-spin mini single, as the wiki doesn't count it), the setup's minimal set, then any
+// other solution; within each, ones that leave a hold-pool piece for the DPC come first.
+// G.guide = {seg, stage:'build'|'pc'|'off', cands:[{o, left, tsd, label}], limit, p0, l0, done, save}
+//   cands: options the board still matches and can still finish, best first; the first is the target shown.
+//   limit: the draw index the next bag starts at; later pieces may only be held ('*' for the solver).
+//   p0/l0: pieces placed and lines cleared when the segment began.
+const SEGS={ms2:{name:'산악쌓기 2호',pieces:20,lines:8},dpc:{name:'DPC',pieces:15,lines:6}};
+function guidedDrill(o){
+  const pool=()=>{const p=PIECES.filter(t=>cfg.dpcHold.includes(t));return p.length?p:['I','O','S','Z'];};
+  const chain=()=>o.loop&&cfg.loop;
+  const view=G=>{
+    const lim=G.guide.limit-G.drawn,q=G.queue.map((t,i)=>i<lim?t:'*');
+    return {cur:q[0],rest:[...q.slice(1),'*']};
+  };
+  const viable=G=>{
+    const g=G.guide,v=view(G);
+    if(g.stage==='build')g.cands=g.cands.filter(c=>setupFeasible(G.board,c.left,c.tsd,v.cur,G.hold,v.rest));
+    else{const lands=new Map();g.cands=g.cands.filter(c=>slotsOrder(G.board,c.left,v.cur,G.hold,v.rest,lands,true)>=0);}
+  };
+  const bagEnd=G=>(Math.floor(G.drawn/7)+1)*7;
+  const enterBuild=(G,opts)=>{
+    const g=G.guide;
+    g.stage='build';g.limit=bagEnd(G);
+    g.cands=opts.map(p=>({o:p.id,left:p.slots,tsd:p.tsd}));
+    viable(G);
+    if(!g.cands.length)g.stage='off';
+  };
+  const startSeg=(G,seg)=>{
+    G.guide={seg,stage:'build',cands:[],p0:G.pieces,l0:G.lines,done:null};
+    enterBuild(G,seg==='dpc'?DPC_OPTS.filter(p=>p.hold===G.hold):MS2_B1);
+  };
+  // PC options are ranked from the position at the start of the PC stage (g.pend): the minimal set straight away,
+  // then every tiling in the background (T-spin solutions may then take the lead). A lock before that is done
+  // finishes it first, so tracking always works on the full list.
+  const keyOfTiling=t=>t.map(s=>s.t+':'+s.key).sort().join(' ');
+  let lands={pend:null,map:new Map()};
+  const landsFor=p=>{if(lands.pend!==p.tk+p.cur+p.hold)lands={pend:p.tk+p.cur+p.hold,map:new Map()};return lands.map;};
+  const rankPC=(p,list)=>{
+    const opt=GUIDE_OPTS[p.opt],minimal=new Map(opt.pcMin.map((t,i)=>[keyOfTiling(t),i])),groups=[[],[],[]];
+    for(const [t,r] of list){
+      if(r<0)continue;
+      const left=[...p.pieces];for(const s of t)left.splice(left.indexOf(s.t),1);
+      const save=left[0]||null,good=!save||pool().includes(save)?0:1,mi=minimal.get(keyOfTiling(t));
+      if(r>=5)groups[0].push({left:t,label:SPIN_NAME[r],save,rank:[-r,good]});
+      else if(mi!==undefined)groups[1].push({left:t,label:'최소해법 '+'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[mi]+' ('+opt.pcMin.length+'개 중)',save,rank:[good,mi]});
+      else groups[2].push({left:t,label:'기타 해법',save,rank:[good,0]});
+    }
+    const cmp=(a,b)=>a.rank[0]-b.rank[0]||a.rank[1]-b.rank[1];
+    return groups.flatMap(x=>x.sort(cmp)).map(({rank,...c})=>c);
+  };
+  const finishPC=G=>{
+    const g=G.guide,p=g.pend;if(!p)return;
+    const all=tilingsFor(p.board,p.lines,p.pieces),m=landsFor(p);
+    for(;p.i<all.length;p.i++)p.res.push(slotsOrder(p.board,all[p.i],p.cur,p.hold,p.rest,m));
+    g.cands=rankPC(p,all.map((t,i)=>[t,p.res[i]]));
+    delete g.pend;
+    if(!g.cands.length)g.stage='off';
+  };
+  function* analysePC(){
+    for(;;){
+      const g=G&&G.guide,p=g&&g.pend;
+      if(!p)return;
+      const k=tilingKey(p.board,p.lines,p.pieces);
+      if(!tilingCache.has(k)){yield;continue;}    // still being tiled by its own job
+      const all=tilingCache.get(k);
+      if(p.i>=all.length){finishPC(G);return;}
+      p.res.push(slotsOrder(p.board,all[p.i],p.cur,p.hold,p.rest,landsFor(p)));p.i++;
+      yield;
+    }
+  }
+  const startPC=(G,opt)=>{
+    const g=G.guide;
+    g.stage='pc';g.limit=bagEnd(G);
+    const v=view(G),lines=SEGS[g.seg].lines-(G.lines-g.l0);
+    const pieces=[G.hold,v.cur,...v.rest].filter(t=>t&&t!=='*');
+    const p=g.pend={tk:tilingKey(G.board,lines,pieces),board:G.board.map(r=>r.slice()),lines,pieces,cur:v.cur,hold:G.hold,rest:v.rest,opt:opt.id,i:0,res:[]};
+    g.cands=rankPC(p,opt.pcMin.map(t=>[t,slotsOrder(p.board,t,p.cur,p.hold,p.rest,landsFor(p))]));
+    if(!tilingCache.has(p.tk)&&!jobs.some(j=>j.key===p.tk))jobs.push({key:p.tk,it:pcTilingsSteps(p.board,lines,pieces),done:r=>tilingCache.set(p.tk,r)});
+    jobs.push({key:'analyse',it:analysePC()});
+    if(!g.cands.length)finishPC(G);
+  };
+  const plan=G=>G.guide&&G.guide.stage!=='off'?G.guide.cands[0]:null;
+  const syncMirror=G=>{const p=plan(G);if(G.guide.stage==='build')G.mirror=!!(p&&GUIDE_OPTS[p.o].mirrored);};
+  const fail=(G,why)=>{G.fail=why;return 'lose';};
+  // track one lock: keep the options it matches, move to the next stage when one is finished
+  const track=(G,placed)=>{
+    const g=G.guide;
+    if(g.stage!=='build'&&g.stage!=='pc')return null;
+    if(g.pend)finishPC(G);
+    const kept=[];let finished=null;
+    for(const c of g.cands){
+      if(c.left.length&&c.tsd&&c.tsd.early&&placed.type==='T'&&c.tsd.key===placed.key&&placed.removed.length===c.tsd.lines){
+        c.tsd=null;c.left=c.left.map(x=>shiftSlot(x,placed.removed));
+      }else if(c.left.length){
+        const s=c.left.find(s=>s.t===placed.type&&s.key===placed.key);
+        if(!s)continue;
+        c.left=c.left.filter(x=>x!==s).map(x=>shiftSlot(x,placed.removed));
+        if(!c.left.length&&!c.tsd&&g.stage==='build'){finished=c;break;}
+      }else if(g.stage==='build'&&placed.type==='T'&&c.tsd.key===placed.key){finished=c;break;}
+      else continue;
+      kept.push(c);
+    }
+    if(finished){
+      const opt=GUIDE_OPTS[finished.o];
+      g.done=opt.name;
+      if(opt.next==='pc')startPC(G,opt);else enterBuild(G,BUILD_NEXT[opt.next]);
+    }else{
+      const matched=kept.length>0,empty=G.board.every(r=>r.every(v=>!v));
+      g.cands=kept;
+      if(!empty)viable(G);
+      if(!g.cands.length&&!empty){
+        const pc=g.stage==='pc';g.stage='off';
+        if(cfg.dpcJudge)return fail(G,!matched?'목표 위치가 아닙니다':pc?'이 블록 순서로는 더 이상 퍼펙트 클리어를 할 수 없습니다':'이 블록 순서로는 더 이상 셋업을 완성할 수 없습니다');
+      }
+    }
+    syncMirror(G);
+    return null;
+  };
+  return {
+    name:o.name,practice:true,desc:()=>o.desc+' · 최고 연속 '+(best[o.key]||0)+'회',
+    setup(G){
+      prewarm(o.first==='dpc'?DPC_OPTS:[...MS2_B2.flat(),...(o.loop?DPC_OPTS:[])]);
+      G.hold=o.first==='dpc'?pool()[Math.random()*pool().length|0]:null;
+      for(let i=0;i<(o.first==='dpc'?2:3);i++)G.queue.push(...bag7());
+      startSeg(G,o.first);syncMirror(G);
+    },
+    nextBag:bag7,
+    gravity:()=>0,
+    afterLock(G,placed){
+      const miss=track(G,placed);
+      if(miss)return miss;
+      const g=G.guide,seg=SEGS[g.seg];
+      if(G.board.every(r=>r.every(v=>!v))){
+        if(!roundCounted){session.tries++;session.ok++;session.streak++;if(session.streak>(best[o.key]||0)){best[o.key]=session.streak;save('tetris.best',best);}}
+        if(!chain())return 'next';
+        // carry on: the next segment starts from this board, hold and queue
+        roundCounted=false;hist=[];
+        startSeg(G,g.seg==='ms2'?'dpc':'ms2');syncMirror(G);
+        return null;
+      }
+      const left=seg.lines-(G.lines-g.l0);
+      if(G.pieces-g.p0>=seg.pieces)return fail(G,seg.pieces+'블록 안에 퍼펙트 클리어를 못 했습니다');
+      if(G.board.filter(r=>r.some(Boolean)).length>left)return fail(G,'남은 '+left+'줄로는 정리할 수 없는 모양입니다');
+      return null;
+    },
+    stats:[['성공',()=>session.ok+' / '+session.tries,true],['연속',()=>session.streak],
+      ['블록',G=>G.guide?(G.pieces-G.guide.p0)+' / '+SEGS[G.guide.seg].pieces:'0'],
+      ['남은 줄',G=>G.guide?SEGS[G.guide.seg].lines-(G.lines-G.guide.l0):'0']],
+    recordBest(){
+      if(!roundCounted){roundCounted=true;session.tries++;session.streak=0;}
+      return false;
+    },
+    title:()=>'MISS',
+    result:G=>[['원인',G.fail||'블록이 천장에 닿았습니다','note'],['구간',G.guide?SEGS[G.guide.seg].name:''],['놓은 블록',G.guide?(G.pieces-G.guide.p0)+' / '+SEGS[G.guide.seg].pieces:''],['성공',session.ok+' / '+session.tries],['최고 연속',(best[o.key]||0)+'회']],
+    tag(G){
+      const g=G.guide,p=plan(G);
+      if(!g)return this.name;
+      const seg=chain()||g.seg!==o.first?SEGS[g.seg].name:this.name;
+      if(g.stage==='build')return seg+' · '+(p?GUIDE_OPTS[p.o].name:'셋업 없음');
+      if(g.stage==='pc')return seg+' · PC · '+(p?p.label+(p.save?' · '+p.save+' 남김':''):'');
+      return seg+' · '+(g.done?'해법 없음':'셋업 없음');
+    },
+    // slots still to fill (or the T-spin slot once the build is done); `now` marks ones the current piece fits
+    targets(G){
+      const p=plan(G);if(!p||!cfg.dpcGuide)return [];
+      const cur=G.cur&&G.cur.type;
+      if(!p.left.length)return p.tsd?[{t:'T',cells:p.tsd.cells,now:true}]:[];
+      return p.left.map(s=>({t:s.t,cells:s.cells,now:s.t===cur||s.t===G.hold&&!G.holdUsed}));
+    }
+  };
+}
+if(!MODES[mode])mode='marathon';
+M=MODES[mode];
+
 // ---------- flow ----------
-function start(m){
-  mode=m;save('tetris.mode',m);
-  reset();state='ready';readyT=1100;
+// Practice history: a snapshot of G at the start of every turn of the current round.
+let hist=[],roundCounted=false,endTimer=0;
+const session={ok:0,tries:0,streak:0};
+function turnStart(){if(M.practice)hist.push(structuredClone(G));}
+function newRound(){
+  clearTimeout(endTimer);
+  G=newGame();if(M.setup)M.setup(G);
+  hist=[];roundCounted=false;
+  state='ready';readyT=M.practice?700:1100;
   ov.hidden=true;
+}
+function restore(snap){
+  clearTimeout(endTimer);
+  G=structuredClone(snap);flashes=[];feed.textContent='';
+  state='play';ov.hidden=true;
   if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();
-  $('#modetag').textContent=m==='sprint'?'40줄 스프린트':'마라톤';
-  $('#pauseBtn').hidden=false;
+}
+// Back one turn; after a miss, back to the start of the turn that missed.
+function undo(){
+  if(!hist.length||(state!=='play'&&state!=='over'))return;
+  if(state==='play'&&hist.length>1)hist.pop();
+  restore(hist[hist.length-1]);
+}
+function retry(){
+  if(!hist.length){newRound();return;}
+  hist.length=1;restore(hist[0]);
+}
+function start(m){
+  mode=m;M=MODES[m];save('tetris.mode',m);
+  feed.textContent='';flashes=[];
+  newRound();
+  if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();
+  $('#pauseBtn').hidden=false;$('#undoBtn').hidden=!M.practice;
   buildStats();
 }
 function pause(){
@@ -402,45 +1111,49 @@ function pause(){
     '<button class="btn" data-act="menu" type="button">모드 선택</button>';
   ov.hidden=false;card.querySelector('button').focus();
 }
-function resume(){state=cur?'play':'ready';if(!cur)readyT=Math.max(readyT,600);ov.hidden=true;if(document.activeElement)document.activeElement.blur();}
+function resume(){state=G.cur?'play':'ready';if(!G.cur)readyT=Math.max(readyT,600);ov.hidden=true;if(document.activeElement)document.activeElement.blur();}
 function fmt(ms){const m=Math.floor(ms/60000),s=Math.floor(ms/1000)%60,c=Math.floor(ms/10)%100;return m+':'+String(s).padStart(2,'0')+'.'+String(c).padStart(2,'0');}
-function pps(){return elapsed>0?(pieces/(elapsed/1000)).toFixed(2):'0.00';}
+function pps(g){return g.elapsed>0?(g.pieces/(g.elapsed/1000)).toFixed(2):'0.00';}
 function endGame(won){
   state='over';held.left=held.right=held.soft=false;dasDir=0;
-  let nb=false;
-  if(mode==='marathon'){if(score>best.marathon){best.marathon=score;nb=true;}}
-  else if(won){if(!best.sprint||elapsed<best.sprint){best.sprint=elapsed;nb=true;}}
+  const nb=M.recordBest(G,won);
   save('tetris.best',best);
   sfx(won?'win':'over');
-  const rows=mode==='sprint'
-    ?[['기록',won?fmt(elapsed):'—',true],['지운 줄',lines+' / 40'],['블록 수',pieces],['PPS',pps()],['최고 기록',best.sprint?fmt(best.sprint):'—']]
-    :[['점수',score.toLocaleString(),true],['레벨',level],['지운 줄',lines],['시간',fmt(elapsed)],['PPS',pps()],['최고 점수',best.marathon.toLocaleString()]];
-  setTimeout(()=>{
+  const rows=M.result(G,won);
+  clearTimeout(endTimer);
+  endTimer=setTimeout(()=>{
     card.innerHTML=(nb?'<span class="newbest">새 최고 기록</span>':'')+
-      '<h2>'+(won?'CLEAR!':'GAME OVER')+'</h2>'+
-      '<dl class="result">'+rows.map(r=>'<dt>'+r[0]+'</dt><dd'+(r[2]?' class="hero"':'')+'>'+r[1]+'</dd>').join('')+'</dl>'+
-      '<button class="btn primary" data-act="restart" type="button">다시 하기<kbd>R</kbd></button>'+
+      '<h2>'+(M.title?M.title(won):won?'CLEAR!':'GAME OVER')+'</h2>'+
+      '<dl class="result">'+rows.map(r=>'<dt>'+r[0]+'</dt><dd'+(r[2]?' class="'+(r[2]==='note'?'note':'hero')+'"':'')+'>'+r[1]+'</dd>').join('')+'</dl>'+
+      (M.practice
+        ?'<button class="btn primary" data-act="undo" type="button">한 수 되돌리기<kbd>⌫</kbd></button>'+
+         '<button class="btn" data-act="restart" type="button">같은 순서로 다시<kbd>R</kbd></button>'+
+         '<button class="btn" data-act="new" type="button">새 순서<kbd>N</kbd></button>'
+        :'<button class="btn primary" data-act="restart" type="button">다시 하기<kbd>R</kbd></button>')+
       '<button class="btn" data-act="menu" type="button">모드 선택</button>';
     ov.hidden=false;card.querySelector('.btn').focus();
   },reduced?0:650);
 }
 function showMenu(){
-  state='menu';reset();
-  $('#modetag').textContent='';$('#pauseBtn').hidden=true;
+  clearTimeout(endTimer);
+  state='menu';reset();hist=[];
+  $('#pauseBtn').hidden=true;$('#undoBtn').hidden=true;
   card.innerHTML='<p class="eyebrow">모드 선택</p>'+
-    '<button class="mode" data-mode="marathon" type="button"><span class="mname">마라톤</span><span class="mdesc">10줄마다 레벨 업 · 최고 '+best.marathon.toLocaleString()+'점</span></button>'+
-    '<button class="mode" data-mode="sprint" type="button"><span class="mname">40줄 스프린트</span><span class="mdesc">40줄을 최대한 빨리 · 최고 '+(best.sprint?fmt(best.sprint):'기록 없음')+'</span></button>'+
-    '<p class="hint">Enter를 누르면 '+(mode==='sprint'?'40줄 스프린트':'마라톤')+' 바로 시작 · SRS 회전, 7-bag, 홀드 지원</p>';
+    Object.keys(MODES).map(k=>'<button class="mode" data-mode="'+k+'" type="button"><span class="mname">'+MODES[k].name+'</span><span class="mdesc">'+MODES[k].desc()+'</span></button>').join('')+
+    '<p class="hint">Enter를 누르면 '+M.name+' 바로 시작 · SRS 회전, 7-bag, 홀드 지원</p>';
   ov.hidden=false;buildStats();
 }
 card.addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;
   if(b.dataset.mode)start(b.dataset.mode);
   else if(b.dataset.act==='resume')resume();
-  else if(b.dataset.act==='restart')start(mode);
+  else if(b.dataset.act==='restart')M.practice?retry():start(mode);
+  else if(b.dataset.act==='undo')undo();
+  else if(b.dataset.act==='new')newRound();
   else if(b.dataset.act==='menu')showMenu();
 });
 $('#pauseBtn').addEventListener('click',()=>{state==='paused'?resume():pause();});
+$('#undoBtn').addEventListener('click',e=>{undo();e.currentTarget.blur();});
 
 function announce(text,cls){
   const d=document.createElement('div');d.className='pop '+(cls||'');d.textContent=text;
@@ -449,18 +1162,13 @@ function announce(text,cls){
 }
 
 // ---------- stats ----------
-let statEls={};
+let statEls=[];
 function buildStats(){
-  const defs=mode==='sprint'
-    ?[['time','시간',true],['left','남은 줄'],['pieces','블록'],['pps','PPS']]
-    :[['score','점수',true],['level','레벨'],['lines','줄'],['time','시간'],['pps','PPS']];
-  statsEl.innerHTML=defs.map(d=>'<div class="stat'+(d[2]?' big':'')+'"><div class="k">'+d[1]+'</div><div class="v" data-s="'+d[0]+'">0</div></div>').join('');
-  statEls={};statsEl.querySelectorAll('[data-s]').forEach(el=>statEls[el.dataset.s]=el);
+  statsEl.innerHTML=M.stats.map(d=>'<div class="stat'+(d[2]?' big':'')+'"><div class="k">'+d[0]+'</div><div class="v">0</div></div>').join('');
+  statEls=[...statsEl.querySelectorAll('.v')];
 }
-function setStat(k,v){const el=statEls[k];if(el&&el.textContent!==String(v))el.textContent=v;}
 function updateStats(){
-  setStat('score',score.toLocaleString());setStat('level',level);setStat('lines',lines);
-  setStat('time',fmt(elapsed));setStat('pps',pps());setStat('left',Math.max(0,40-lines));setStat('pieces',pieces);
+  M.stats.forEach((d,i)=>{const el=statEls[i],v=String(d[1](G));if(el&&el.textContent!==v)el.textContent=v;});
 }
 
 // ---------- layout & drawing ----------
@@ -494,7 +1202,7 @@ function drawMini(g,t,cx,cy,s,dim){
   m.forEach((row,r)=>row.forEach((v,c)=>{if(v)cell(g,ox+(c-x0)*s,oy+(r-y0)*s,s,dim?DEAD:COLORS[t]);}));
 }
 function render(now){
-  const W=CS*COLS,H=CS*ROWS,dead=state==='over';
+  const W=CS*COLS,H=CS*ROWS,dead=state==='over',cur=G.cur;
   wctx.fillStyle='#0d0c16';wctx.fillRect(0,0,W,H);
   wctx.strokeStyle='#1f1c30';wctx.lineWidth=1;wctx.beginPath();
   for(let x=1;x<COLS;x++){wctx.moveTo(x*CS+.5,0);wctx.lineTo(x*CS+.5,H);}
@@ -502,9 +1210,18 @@ function render(now){
   wctx.stroke();
   let danger=false;
   for(let r=HID;r<TOT;r++)for(let c=0;c<COLS;c++){
-    const v=board[r][c];if(!v)continue;
+    const v=G.board[r][c];if(!v)continue;
     if(r<HID+4)danger=true;
     cell(wctx,c*CS,(r-HID)*CS,CS,dead?DEAD:COLORS[v]);
+  }
+  if(M.targets&&state!=='menu'&&!dead)for(const s of M.targets(G)){
+    wctx.strokeStyle=COLORS[s.t];wctx.fillStyle=COLORS[s.t];wctx.lineWidth=1.5;
+    for(const [r,c] of s.cells){
+      if(r<HID)continue;
+      wctx.globalAlpha=s.now?.28:.1;wctx.fillRect(c*CS+3,(r-HID)*CS+3,CS-6,CS-6);
+      wctx.globalAlpha=s.now?.9:.4;wctx.setLineDash([4,3]);wctx.strokeRect(c*CS+3.5,(r-HID)*CS+3.5,CS-7,CS-7);
+    }
+    wctx.setLineDash([]);wctx.globalAlpha=1;
   }
   if(cur&&(state==='play'||state==='paused')){
     const m=ROT[cur.type][cur.rot],col=COLORS[cur.type];
@@ -513,7 +1230,7 @@ function render(now){
     for(let i=0;i<m.length;i++)for(let j=0;j<m.length;j++)if(m[i][j]&&gy+i>=HID)wctx.fillRect((cur.x+j)*CS+2,(gy+i-HID)*CS+2,CS-4,CS-4);
     wctx.globalAlpha=.7;wctx.strokeStyle=col;wctx.lineWidth=1.5;
     for(let i=0;i<m.length;i++)for(let j=0;j<m.length;j++)if(m[i][j]&&gy+i>=HID)wctx.strokeRect((cur.x+j)*CS+2.5,(gy+i-HID)*CS+2.5,CS-5,CS-5);
-    wctx.globalAlpha=grounded()?1-Math.min(.35,lockT/500*.35):1;
+    wctx.globalAlpha=grounded()?1-Math.min(.35,G.lockT/500*.35):1;
     for(let i=0;i<m.length;i++)for(let j=0;j<m.length;j++)if(m[i][j]&&cur.y+i>=HID)cell(wctx,(cur.x+j)*CS,(cur.y+i-HID)*CS,CS,col);
     wctx.globalAlpha=1;
   }
@@ -522,43 +1239,42 @@ function render(now){
     wctx.fillStyle='rgba(255,255,255,'+(a*.55)+')';wctx.fillRect(0,(f.r-HID)*CS,W,CS);return true;
   });
   wellwrap.classList.toggle('danger',danger&&!dead);
+  const tag=state==='menu'?'':M.tag?M.tag(G):M.name+(G.mirror?' · 좌우 반전':'');
+  if(modetag.textContent!==tag)modetag.textContent=tag;
+  modetag.classList.toggle('mirrored',state!=='menu'&&!!G.mirror);
 
   hctx.clearRect(0,0,holdC.width,holdC.height);
-  if(hold)drawMini(hctx,hold,(PS*4+16)/2,PS*1.5,PS,holdUsed||dead);
+  if(G.hold)drawMini(hctx,G.hold,(PS*4+16)/2,PS*1.5,PS,G.holdUsed||dead);
   nctx.clearRect(0,0,nextC.width,nextC.height);
-  if(state!=='menu')for(let i=0;i<5&&i<queue.length;i++)drawMini(nctx,queue[i],(PS*4+16)/2,PS*1.5+i*PS*3,i===0?PS:PS*.85,dead);
+  if(state!=='menu')for(let i=0;i<5&&i<G.queue.length;i++)drawMini(nctx,G.queue[i],(PS*4+16)/2,PS*1.5+i*PS*3,i===0?PS:PS*.85,dead);
 
-  callout.textContent=state==='ready'?(readyT>400?'READY':'GO'):'';
+  callout.textContent=state==='ready'?(readyT>400?'READY':'GO')+(G.mirror?'\nMIRROR':''):'';
   updateStats();
 }
 
 // ---------- loop ----------
-function gravityPerMs(){
-  if(mode==='sprint')return 1/1000;
-  const sec=Math.pow(.8-(level-1)*.007,level-1);
-  return 1/(sec*1000);
-}
 function update(dt){
-  elapsed+=dt;
+  G.elapsed+=dt;
   handleShift(dt);
-  if(!cur)return;
-  const g=gravityPerMs();
+  if(!G.cur)return;
+  const g=M.gravity(G);
   if(held.soft&&cfg.sdf>40){
-    let n=0;while(tryMove(0,1))n++;score+=n;
+    let n=0;while(tryMove(0,1))n++;G.score+=n;
   }else{
     const rate=held.soft?Math.max(g*cfg.sdf,cfg.sdf/1000):g;
-    grav+=rate*dt;
-    while(grav>=1){grav-=1;if(!tryMove(0,1)){grav=0;break;}if(held.soft)score+=1;}
+    G.grav+=rate*dt;
+    while(G.grav>=1){G.grav-=1;if(!tryMove(0,1)){G.grav=0;break;}if(held.soft)G.score+=1;}
   }
-  if(cur&&grounded()){lockT+=dt;if(lockT>=500)lockPiece();}
+  if(G.cur&&grounded()){G.lockT+=dt;if(G.lockT>=500)lockPiece();}
 }
 let last=performance.now();
 function frame(now){
   const dt=Math.min(50,now-last);last=now;
+  runJobs(5);
   if(state==='play')update(dt);
   else if(state==='ready'){
     readyT-=dt;if(dasDir){dasT+=dt;}
-    if(readyT<=0){state='play';spawn(takeNext());}
+    if(readyT<=0){state='play';if(spawn(takeNext()))turnStart();}
   }
   render(now);
   requestAnimationFrame(frame);
@@ -574,6 +1290,13 @@ bindRange('das','das',v=>v+'ms');
 bindRange('arr','arr',v=>v===0?'즉시':v+'ms');
 bindRange('sdf','sdf',v=>v>40?'∞':v+'x');
 const snd=$('#snd');snd.checked=cfg.sound;snd.addEventListener('change',()=>{cfg.sound=snd.checked;save('tetris.settings',cfg);});
+const mir=$('#mir');mir.value=cfg.mirror;mir.addEventListener('change',()=>{cfg.mirror=mir.value;save('tetris.settings',cfg);});
+const dpcHold=$('#dpcHold');
+dpcHold.innerHTML=['O','S','Z','I','J','L','T'].map(t=>'<label style="color:'+COLORS[t]+'"><input type="checkbox" value="'+t+'"'+(cfg.dpcHold.includes(t)?' checked':'')+'> '+t+'</label>').join('');
+dpcHold.addEventListener('change',()=>{cfg.dpcHold=[...dpcHold.querySelectorAll('input:checked')].map(i=>i.value).join('');save('tetris.settings',cfg);});
+for(const [id,key] of [['dpcGuide','dpcGuide'],['dpcJudge','dpcJudge'],['loop','loop']]){
+  const el=$('#'+id);el.checked=cfg[key];el.addEventListener('change',()=>{cfg[key]=el.checked;save('tetris.settings',cfg);});
+}
 
 layout();reset();showMenu();requestAnimationFrame(frame);
 })();
