@@ -60,7 +60,8 @@ canvas{display:block}
 .stats{grid-area:stats;display:flex;flex-direction:column;gap:10px;min-width:0}
 .stat .k{font-size:11px;font-weight:700;letter-spacing:.12em;color:var(--muted)}
 .stat .v{font:700 17px var(--mono);font-variant-numeric:tabular-nums;margin-top:2px;white-space:nowrap}
-.stat.big .v{font:400 20px var(--display);color:var(--accent);letter-spacing:.02em}
+/* every digit the same width, so a running timer never changes the column's width */
+.stat.big .v{font:700 22px var(--mono);font-variant-numeric:tabular-nums;color:var(--accent);letter-spacing:0}
 
 .wellwrap{grid-area:well;position:relative;border:2px solid var(--edge);border-top-color:transparent;box-shadow:0 0 0 6px rgba(13,12,22,.6),0 18px 50px rgba(0,0,0,.45);transition:border-color .3s,box-shadow .3s}
 .wellwrap.danger{border-color:var(--danger);border-top-color:transparent;box-shadow:0 0 0 6px rgba(13,12,22,.6),0 0 28px rgba(255,93,115,.35)}
