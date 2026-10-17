@@ -1,6 +1,6 @@
-# Tetris-opening-practice
+# PC Loop Trainer
 
-`tetris.html` 하나로 동작하는 테트리스입니다. 빌드 없이 브라우저로 파일을 열면 실행됩니다.
+`tetris.html` 하나로 동작하는 블록 쌓기 퍼즐 오프닝·퍼펙트 클리어(PC) 연습 도구입니다. 빌드 없이 브라우저로 파일을 열면 실행됩니다.
 
 ## 코드 구조
 
