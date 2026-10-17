@@ -63,3 +63,9 @@
 
 `decodeFumen(문자열)`은 fumen(v115) 링크나 문자열을 페이지 배열로 바꿉니다.
 각 페이지의 `field`는 보드와 같은 23줄(위→아래) 배열이고, 페이지에 놓인 블록은 `piece`와 `placed`에 들어 있습니다.
+
+## 고지
+
+- Tetris는 The Tetris Company의 상표입니다. 이 프로젝트는 The Tetris Company와 관련이 없는 비상업 개인 연습 도구입니다.
+- 셋업과 PC 해법은 [Hard Drop 위키](https://harddrop.com/wiki/)의 공개 자료(DPC Setups, Mountainous Stacking)를 바탕으로 좌표 데이터로 다시 만든 것입니다.
+- 회전 킥 표는 TETR.IO의 SRS+ 규칙을 따릅니다. 이 프로젝트는 TETR.IO와도 관련이 없습니다.
