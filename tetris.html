@@ -953,20 +953,21 @@ function guidedDrill(o){
   const keyOfTiling=t=>t.map(s=>s.t+':'+s.key).sort().join(' ');
   let lands={pend:null,map:new Map()};
   const landsFor=p=>{if(lands.pend!==p.tk+p.cur+p.hold)lands={pend:p.tk+p.cur+p.hold,map:new Map()};return lands.map;};
+  // Leaving a piece the DPC hold pool covers comes before everything else (a PC that hands DPC an unpracticed hold
+  // ends the run anyway); then Tetris (DPC only), T-spins, the minimal set and the rest.
   const rankPC=(p,list)=>{
-    const opt=GUIDE_OPTS[p.opt],minimal=new Map(opt.pcMin.map((t,i)=>[keyOfTiling(t),i])),groups=[[],[],[],[]];
+    const opt=GUIDE_OPTS[p.opt],minimal=new Map(opt.pcMin.map((t,i)=>[keyOfTiling(t),i])),out=[];
     for(const [t,r] of list){
       if(r<0)continue;
       const left=[...p.pieces];for(const s of t)left.splice(left.indexOf(s.t),1);
       const save=left[0]||null,good=!save||pool().includes(save)?0:1,mi=minimal.get(keyOfTiling(t));
       const tetris=SEGS[p.seg].tetris&&r>=100,spin=r%100;
-      if(tetris)groups[0].push({left:t,label:'테트리스 PC (I를 마지막에)'+(spin>=5?' + '+SPIN_NAME[spin]:''),save,rank:[-spin,good]});
-      else if(spin>=5)groups[1].push({left:t,label:SPIN_NAME[spin],save,rank:[-spin,good]});
-      else if(mi!==undefined)groups[2].push({left:t,label:'최소해법 '+'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[mi]+' ('+opt.pcMin.length+'개 중)',save,rank:[good,mi]});
-      else groups[3].push({left:t,label:'기타 해법',save,rank:[good,0]});
+      if(tetris)out.push({left:t,label:'테트리스 PC (I를 마지막에)'+(spin>=5?' + '+SPIN_NAME[spin]:''),save,rank:[good,0,-spin]});
+      else if(spin>=5)out.push({left:t,label:SPIN_NAME[spin],save,rank:[good,1,-spin]});
+      else if(mi!==undefined)out.push({left:t,label:'최소해법 '+'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[mi]+' ('+opt.pcMin.length+'개 중)',save,rank:[good,2,mi]});
+      else out.push({left:t,label:'기타 해법',save,rank:[good,3,0]});
     }
-    const cmp=(a,b)=>a.rank[0]-b.rank[0]||a.rank[1]-b.rank[1];
-    return groups.flatMap(x=>x.sort(cmp)).map(({rank,...c})=>c);
+    return out.sort((a,b)=>a.rank[0]-b.rank[0]||a.rank[1]-b.rank[1]||a.rank[2]-b.rank[2]).map(({rank,...c})=>c);
   };
   const finishPC=G=>{
     const g=G.guide,p=g.pend;if(!p)return;
@@ -1077,7 +1078,7 @@ function guidedDrill(o){
       if(!g)return this.name;
       const seg=chain()||g.seg!==o.first?SEGS[g.seg].name:this.name;
       if(g.stage==='build')return seg+' · '+(p?GUIDE_OPTS[p.o].name:'셋업 없음');
-      if(g.stage==='pc')return seg+' · PC · '+(p?p.label+(p.save?' · '+p.save+' 남김':''):'');
+      if(g.stage==='pc')return seg+' · PC · '+(p?p.label+(p.save?' · '+p.save+' 남김'+(pool().includes(p.save)?'':' (hold 후보 밖)'):''):'');
       return seg+' · '+(g.done?'해법 없음':'셋업 없음');
     },
     // slots still to fill (or the T-spin slot once the build is done); `now` marks ones the current piece fits
