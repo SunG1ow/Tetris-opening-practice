@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>테트리스</title>
+<title>PC Loop Trainer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=IBM+Plex+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap">
@@ -130,7 +130,7 @@ kbd{font:500 12px var(--mono);color:var(--fg);background:var(--panel);border:1px
 </head>
 <body>
 <header class="top">
-  <div class="brand"><div class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></div><h1>테트리스</h1><span class="modetag" id="modetag"></span></div>
+  <div class="brand"><div class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></div><h1>PC Loop Trainer</h1><span class="modetag" id="modetag"></span></div>
   <div class="tools"><button id="undoBtn" type="button" hidden>되돌리기</button><button id="pauseBtn" type="button">일시정지</button></div>
 </header>
 
@@ -523,8 +523,8 @@ function* pcTilingsSteps(b,lines,pieces){
 }
 // Can these slots all be filled playing cur, then the queue, holding at most once per piece? '*' in the queue
 // is a piece that may only go into hold (the next bag, which a loop leaves alone). Returns -1 if not, otherwise
-// the best the orders allow: 100 if an I can clear four lines at once (a Tetris), plus the best T-spin,
-// lines cleared * 3 + (2 full | 1 mini), 0 for none. Orders with a Tetris win over those without.
+// the best the orders allow: 100 if an I can clear four lines at once (a quad), plus the best T-spin,
+// lines cleared * 3 + (2 full | 1 mini), 0 for none. Orders with a quad win over those without.
 // `lands` caches landSpin by board and slot; pass the same Map to calls on the same starting board.
 // With `any` it stops at the first order that works (returns 0 or -1), for when only feasibility matters.
 function slotsOrder(b,slots,cur,hold,queue,lands=new Map(),any=false){
@@ -550,8 +550,8 @@ function slotsOrder(b,slots,cur,hold,queue,lands=new Map(),any=false){
         const {board,removed}=placeOn(b,s.cells,p);
         const rest=go(board,left.filter(o=>o!==s).map(o=>shiftSlot(o,removed)),queue[n],h,n+1);
         if(rest<0)continue;
-        const own=p==='T'&&spin>0&&removed.length?removed.length*3+spin:0,tetris=p==='I'&&removed.length===4;
-        best=Math.max(best,(tetris||rest>=100?100:0)+Math.max(own,rest%100));
+        const own=p==='T'&&spin>0&&removed.length?removed.length*3+spin:0,quad=p==='I'&&removed.length===4;
+        best=Math.max(best,(quad||rest>=100?100:0)+Math.max(own,rest%100));
         if(any)break;
       }
     }
@@ -563,14 +563,16 @@ function slotsOrder(b,slots,cur,hold,queue,lands=new Map(),any=false){
 // ---------- storage ----------
 const load=(k,d)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}};
 const save=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}};
-const cfg=Object.assign({das:150,arr:33,sdf:20,sound:true,mirror:'off',dpcHold:'IOSZ',dpcGuide:true,dpcJudge:true,loop:true,guideAlpha:40},load('tetris.settings',{}));
-const best=Object.assign({marathon:0,sprint:0},load('tetris.best',{}));
+// storage keys were tetris.* before the rename; carry them over once
+try{for(const k of ['settings','best','mode']){const v=localStorage.getItem('tetris.'+k);if(v!==null&&localStorage.getItem('plt.'+k)===null)localStorage.setItem('plt.'+k,v);localStorage.removeItem('tetris.'+k);}}catch(e){}
+const cfg=Object.assign({das:150,arr:33,sdf:20,sound:true,mirror:'off',dpcHold:'IOSZ',dpcGuide:true,dpcJudge:true,loop:true,guideAlpha:40},load('plt.settings',{}));
+const best=Object.assign({marathon:0,sprint:0},load('plt.best',{}));
 
 // ---------- state ----------
 // G holds everything the simulation reads or writes, so a snapshot is just structuredClone(G).
 // UI flow (state, readyT, flashes) and input (held, DAS) stay outside it.
 let G,state='menu',readyT=0,flashes=[];
-let mode=load('tetris.mode','marathon'),M;
+let mode=load('plt.mode','marathon'),M;
 function newGame(){
   return {
     board:Array.from({length:TOT},()=>Array(COLS).fill(0)),
@@ -683,7 +685,7 @@ function scoreClear(n,ts){
   let pts=0,difficult=false;const lv=G.level;
   if(ts==='full'){pts=[400,800,1200,1600][n];difficult=n>0;announce('T-SPIN'+(n?' '+['','SINGLE','DOUBLE','TRIPLE'][n]:''),'violet');sfx(n?'tspin':'lock');}
   else if(ts==='mini'){pts=[100,200,400][n]||400;difficult=n>0;announce('T-SPIN MINI'+(n?' '+['','SINGLE','DOUBLE'][n]:''),'violet');sfx(n?'tspin':'lock');}
-  else if(n){pts=[0,100,300,500,800][n];difficult=n===4;if(n===4){announce('TETRIS','cyan');sfx('tetris');}else sfx('clear');}
+  else if(n){pts=[0,100,300,500,800][n];difficult=n===4;if(n===4){announce('QUAD','cyan');sfx('quad');}else sfx('clear');}
   else sfx('lock');
   if(n){
     if(difficult&&G.b2b){pts*=1.5;announce('BACK-TO-BACK','gold');}
@@ -771,7 +773,7 @@ function sfx(n){
   else if(n==='drop')tone(110,.08,'triangle',.08);
   else if(n==='hold')tone(330,.05,'sine',.05);
   else if(n==='clear')tone(523,.12,'square',.035);
-  else if(n==='tetris'){[523,659,784,1047].forEach((f,i)=>tone(f,.12,'square',.035,i*.06));}
+  else if(n==='quad'){[523,659,784,1047].forEach((f,i)=>tone(f,.12,'square',.035,i*.06));}
   else if(n==='tspin'){[392,587,784].forEach((f,i)=>tone(f,.12,'sawtooth',.03,i*.06));}
   else if(n==='over'){[392,330,262,196].forEach((f,i)=>tone(f,.18,'triangle',.06,i*.12));}
   else if(n==='win'){[523,659,784,1047,1319].forEach((f,i)=>tone(f,.14,'square',.035,i*.07));}
@@ -843,7 +845,7 @@ function pcDrill(o){
       if(G.board.every(r=>r.every(v=>!v))){
         if(!roundCounted){
           roundCounted=true;session.tries++;session.ok++;session.streak++;
-          if(session.streak>(best[o.key]||0)){best[o.key]=session.streak;save('tetris.best',best);}
+          if(session.streak>(best[o.key]||0)){best[o.key]=session.streak;save('plt.best',best);}
         }
         return 'next';
       }
@@ -914,15 +916,15 @@ const SPIN_NAME={4:'T-스핀 미니 싱글',5:'T-스핀 싱글',7:'T-스핀 미�
 // One perfect clear after another: a segment is Mountainous Stacking 2 (3 bags, 8 lines, 20 pieces, one piece
 // left in hold) or a DPC (that piece and 2 bags, 6 lines, 15 pieces). Within a segment the drill walks build
 // stages, each a set of GUIDE_OPTS, then the PC stage, whose options come from the solver when it starts:
-// in a DPC, Tetris finishes first; then T-spin solutions (not a T-spin mini single, as the wiki doesn't count
+// in a DPC, quad finishes first; then T-spin solutions (not a T-spin mini single, as the wiki doesn't count
 // it), the setup's minimal set, then any other solution; within each, ones that leave a hold-pool piece for the
 // DPC come first.
 // G.guide = {seg, stage:'build'|'pc'|'off', cands:[{o, left, tsd, label}], limit, p0, l0, done, save}
 //   cands: options the board still matches and can still finish, best first; the first is the target shown.
 //   limit: the draw index the next bag starts at; later pieces may only be held ('*' for the solver).
 //   p0/l0: pieces placed and lines cleared when the segment began.
-// tetris: whether this segment's PC prefers a Tetris finish over T-spins (DPC does)
-const SEGS={ms2:{name:'산악쌓기 2호',pieces:20,lines:8},dpc:{name:'DPC',pieces:15,lines:6,tetris:true}};
+// quad: whether this segment's PC prefers a quad (four lines with the last I) finish over T-spins (DPC does)
+const SEGS={ms2:{name:'산악쌓기 2호',pieces:20,lines:8},dpc:{name:'DPC',pieces:15,lines:6,quad:true}};
 function guidedDrill(o){
   const pool=()=>{const p=PIECES.filter(t=>cfg.dpcHold.includes(t));return p.length?p:['I','O','S','Z'];};
   const chain=()=>o.loop&&cfg.loop;
@@ -954,15 +956,15 @@ function guidedDrill(o){
   let lands={pend:null,map:new Map()};
   const landsFor=p=>{if(lands.pend!==p.tk+p.cur+p.hold)lands={pend:p.tk+p.cur+p.hold,map:new Map()};return lands.map;};
   // Leaving a piece the DPC hold pool covers comes before everything else (a PC that hands DPC an unpracticed hold
-  // ends the run anyway); then Tetris (DPC only), T-spins, the minimal set and the rest.
+  // ends the run anyway); then quad (DPC only), T-spins, the minimal set and the rest.
   const rankPC=(p,list)=>{
     const opt=GUIDE_OPTS[p.opt],minimal=new Map(opt.pcMin.map((t,i)=>[keyOfTiling(t),i])),out=[];
     for(const [t,r] of list){
       if(r<0)continue;
       const left=[...p.pieces];for(const s of t)left.splice(left.indexOf(s.t),1);
       const save=left[0]||null,good=!save||pool().includes(save)?0:1,mi=minimal.get(keyOfTiling(t));
-      const tetris=SEGS[p.seg].tetris&&r>=100,spin=r%100;
-      if(tetris)out.push({left:t,label:'테트리스 PC (I를 마지막에)'+(spin>=5?' + '+SPIN_NAME[spin]:''),save,rank:[good,0,-spin]});
+      const quad=SEGS[p.seg].quad&&r>=100,spin=r%100;
+      if(quad)out.push({left:t,label:'쿼드 PC (I를 마지막에)'+(spin>=5?' + '+SPIN_NAME[spin]:''),save,rank:[good,0,-spin]});
       else if(spin>=5)out.push({left:t,label:SPIN_NAME[spin],save,rank:[good,1,-spin]});
       else if(mi!==undefined)out.push({left:t,label:'최소해법 '+'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[mi]+' ('+opt.pcMin.length+'개 중)',save,rank:[good,2,mi]});
       else out.push({left:t,label:'기타 해법',save,rank:[good,3,0]});
@@ -1052,7 +1054,7 @@ function guidedDrill(o){
       if(miss)return miss;
       const g=G.guide,seg=SEGS[g.seg];
       if(G.board.every(r=>r.every(v=>!v))){
-        if(!roundCounted){session.tries++;session.ok++;session.streak++;if(session.streak>(best[o.key]||0)){best[o.key]=session.streak;save('tetris.best',best);}}
+        if(!roundCounted){session.tries++;session.ok++;session.streak++;if(session.streak>(best[o.key]||0)){best[o.key]=session.streak;save('plt.best',best);}}
         if(!chain())return 'next';
         // carry on: the next segment starts from this board, hold and queue
         roundCounted=false;hist=[];
@@ -1122,7 +1124,7 @@ function retry(){
   hist.length=1;restore(hist[0]);
 }
 function start(m){
-  mode=m;M=MODES[m];save('tetris.mode',m);
+  mode=m;M=MODES[m];save('plt.mode',m);
   feed.textContent='';flashes=[];
   newRound();
   if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();
@@ -1144,7 +1146,7 @@ function pps(g){return g.elapsed>0?(g.pieces/(g.elapsed/1000)).toFixed(2):'0.00'
 function endGame(won){
   state='over';held.left=held.right=held.soft=false;dasDir=0;
   const nb=M.recordBest(G,won);
-  save('tetris.best',best);
+  save('plt.best',best);
   sfx(won?'win':'over');
   const rows=M.result(G,won);
   clearTimeout(endTimer);
@@ -1323,22 +1325,22 @@ function frame(now){
 function bindRange(id,key,fmtv){
   const el=$('#'+id),out=$('#'+id+'v');
   el.value=cfg[key];out.textContent=fmtv(cfg[key]);
-  el.addEventListener('input',()=>{cfg[key]=+el.value;out.textContent=fmtv(cfg[key]);save('tetris.settings',cfg);});
+  el.addEventListener('input',()=>{cfg[key]=+el.value;out.textContent=fmtv(cfg[key]);save('plt.settings',cfg);});
 }
 bindRange('das','das',v=>v+'ms');
 bindRange('arr','arr',v=>v===0?'즉시':v+'ms');
 bindRange('sdf','sdf',v=>v>40?'∞':v+'x');
 bindRange('ga','guideAlpha',v=>v+'%');
-const snd=$('#snd');snd.checked=cfg.sound;snd.addEventListener('change',()=>{cfg.sound=snd.checked;save('tetris.settings',cfg);});
+const snd=$('#snd');snd.checked=cfg.sound;snd.addEventListener('change',()=>{cfg.sound=snd.checked;save('plt.settings',cfg);});
 // once a setting has been changed, hand the keys back to the game
 document.querySelectorAll('.settings input,.settings select').forEach(el=>el.addEventListener('change',()=>el.blur()));
 document.querySelectorAll('.settings summary').forEach(el=>el.addEventListener('click',()=>setTimeout(()=>el.blur())));
-const mir=$('#mir');mir.value=cfg.mirror;mir.addEventListener('change',()=>{cfg.mirror=mir.value;save('tetris.settings',cfg);});
+const mir=$('#mir');mir.value=cfg.mirror;mir.addEventListener('change',()=>{cfg.mirror=mir.value;save('plt.settings',cfg);});
 const dpcHold=$('#dpcHold');
 dpcHold.innerHTML=['O','S','Z','I','J','L','T'].map(t=>'<label style="color:'+COLORS[t]+'"><input type="checkbox" value="'+t+'"'+(cfg.dpcHold.includes(t)?' checked':'')+'> '+t+'</label>').join('');
-dpcHold.addEventListener('change',()=>{cfg.dpcHold=[...dpcHold.querySelectorAll('input:checked')].map(i=>i.value).join('');save('tetris.settings',cfg);});
+dpcHold.addEventListener('change',()=>{cfg.dpcHold=[...dpcHold.querySelectorAll('input:checked')].map(i=>i.value).join('');save('plt.settings',cfg);});
 for(const [id,key] of [['dpcGuide','dpcGuide'],['dpcJudge','dpcJudge'],['loop','loop']]){
-  const el=$('#'+id);el.checked=cfg[key];el.addEventListener('change',()=>{cfg[key]=el.checked;save('tetris.settings',cfg);});
+  const el=$('#'+id);el.checked=cfg[key];el.addEventListener('change',()=>{cfg[key]=el.checked;save('plt.settings',cfg);});
 }
 
 layout();reset();showMenu();requestAnimationFrame(frame);
