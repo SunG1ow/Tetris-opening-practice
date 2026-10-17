@@ -563,14 +563,16 @@ function slotsOrder(b,slots,cur,hold,queue,lands=new Map(),any=false){
 // ---------- storage ----------
 const load=(k,d)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}};
 const save=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}};
-const cfg=Object.assign({das:150,arr:33,sdf:20,sound:true,mirror:'off',dpcHold:'IOSZ',dpcGuide:true,dpcJudge:true,loop:true,guideAlpha:40},load('tetris.settings',{}));
-const best=Object.assign({marathon:0,sprint:0},load('tetris.best',{}));
+// storage keys were tetris.* before the rename; carry them over once
+try{for(const k of ['settings','best','mode']){const v=localStorage.getItem('tetris.'+k);if(v!==null&&localStorage.getItem('plt.'+k)===null)localStorage.setItem('plt.'+k,v);localStorage.removeItem('tetris.'+k);}}catch(e){}
+const cfg=Object.assign({das:150,arr:33,sdf:20,sound:true,mirror:'off',dpcHold:'IOSZ',dpcGuide:true,dpcJudge:true,loop:true,guideAlpha:40},load('plt.settings',{}));
+const best=Object.assign({marathon:0,sprint:0},load('plt.best',{}));
 
 // ---------- state ----------
 // G holds everything the simulation reads or writes, so a snapshot is just structuredClone(G).
 // UI flow (state, readyT, flashes) and input (held, DAS) stay outside it.
 let G,state='menu',readyT=0,flashes=[];
-let mode=load('tetris.mode','marathon'),M;
+let mode=load('plt.mode','marathon'),M;
 function newGame(){
   return {
     board:Array.from({length:TOT},()=>Array(COLS).fill(0)),
@@ -843,7 +845,7 @@ function pcDrill(o){
       if(G.board.every(r=>r.every(v=>!v))){
         if(!roundCounted){
           roundCounted=true;session.tries++;session.ok++;session.streak++;
-          if(session.streak>(best[o.key]||0)){best[o.key]=session.streak;save('tetris.best',best);}
+          if(session.streak>(best[o.key]||0)){best[o.key]=session.streak;save('plt.best',best);}
         }
         return 'next';
       }
@@ -1052,7 +1054,7 @@ function guidedDrill(o){
       if(miss)return miss;
       const g=G.guide,seg=SEGS[g.seg];
       if(G.board.every(r=>r.every(v=>!v))){
-        if(!roundCounted){session.tries++;session.ok++;session.streak++;if(session.streak>(best[o.key]||0)){best[o.key]=session.streak;save('tetris.best',best);}}
+        if(!roundCounted){session.tries++;session.ok++;session.streak++;if(session.streak>(best[o.key]||0)){best[o.key]=session.streak;save('plt.best',best);}}
         if(!chain())return 'next';
         // carry on: the next segment starts from this board, hold and queue
         roundCounted=false;hist=[];
@@ -1122,7 +1124,7 @@ function retry(){
   hist.length=1;restore(hist[0]);
 }
 function start(m){
-  mode=m;M=MODES[m];save('tetris.mode',m);
+  mode=m;M=MODES[m];save('plt.mode',m);
   feed.textContent='';flashes=[];
   newRound();
   if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();
@@ -1144,7 +1146,7 @@ function pps(g){return g.elapsed>0?(g.pieces/(g.elapsed/1000)).toFixed(2):'0.00'
 function endGame(won){
   state='over';held.left=held.right=held.soft=false;dasDir=0;
   const nb=M.recordBest(G,won);
-  save('tetris.best',best);
+  save('plt.best',best);
   sfx(won?'win':'over');
   const rows=M.result(G,won);
   clearTimeout(endTimer);
@@ -1323,22 +1325,22 @@ function frame(now){
 function bindRange(id,key,fmtv){
   const el=$('#'+id),out=$('#'+id+'v');
   el.value=cfg[key];out.textContent=fmtv(cfg[key]);
-  el.addEventListener('input',()=>{cfg[key]=+el.value;out.textContent=fmtv(cfg[key]);save('tetris.settings',cfg);});
+  el.addEventListener('input',()=>{cfg[key]=+el.value;out.textContent=fmtv(cfg[key]);save('plt.settings',cfg);});
 }
 bindRange('das','das',v=>v+'ms');
 bindRange('arr','arr',v=>v===0?'즉시':v+'ms');
 bindRange('sdf','sdf',v=>v>40?'∞':v+'x');
 bindRange('ga','guideAlpha',v=>v+'%');
-const snd=$('#snd');snd.checked=cfg.sound;snd.addEventListener('change',()=>{cfg.sound=snd.checked;save('tetris.settings',cfg);});
+const snd=$('#snd');snd.checked=cfg.sound;snd.addEventListener('change',()=>{cfg.sound=snd.checked;save('plt.settings',cfg);});
 // once a setting has been changed, hand the keys back to the game
 document.querySelectorAll('.settings input,.settings select').forEach(el=>el.addEventListener('change',()=>el.blur()));
 document.querySelectorAll('.settings summary').forEach(el=>el.addEventListener('click',()=>setTimeout(()=>el.blur())));
-const mir=$('#mir');mir.value=cfg.mirror;mir.addEventListener('change',()=>{cfg.mirror=mir.value;save('tetris.settings',cfg);});
+const mir=$('#mir');mir.value=cfg.mirror;mir.addEventListener('change',()=>{cfg.mirror=mir.value;save('plt.settings',cfg);});
 const dpcHold=$('#dpcHold');
 dpcHold.innerHTML=['O','S','Z','I','J','L','T'].map(t=>'<label style="color:'+COLORS[t]+'"><input type="checkbox" value="'+t+'"'+(cfg.dpcHold.includes(t)?' checked':'')+'> '+t+'</label>').join('');
-dpcHold.addEventListener('change',()=>{cfg.dpcHold=[...dpcHold.querySelectorAll('input:checked')].map(i=>i.value).join('');save('tetris.settings',cfg);});
+dpcHold.addEventListener('change',()=>{cfg.dpcHold=[...dpcHold.querySelectorAll('input:checked')].map(i=>i.value).join('');save('plt.settings',cfg);});
 for(const [id,key] of [['dpcGuide','dpcGuide'],['dpcJudge','dpcJudge'],['loop','loop']]){
-  const el=$('#'+id);el.checked=cfg[key];el.addEventListener('change',()=>{cfg[key]=el.checked;save('tetris.settings',cfg);});
+  const el=$('#'+id);el.checked=cfg[key];el.addEventListener('change',()=>{cfg[key]=el.checked;save('plt.settings',cfg);});
 }
 
 layout();reset();showMenu();requestAnimationFrame(frame);
